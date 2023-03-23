@@ -20,4 +20,27 @@ jobs:
         override: true
         components: rustfmt
     - name: Rust format
-      run: cargo fmt --all -- --check
+      run: rustfmt --check $(find . -not -path '*/target/*' -name '*.rs')
+  ##########
+  # Clippy #
+  ##########
+  Clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup component add clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+  ##########
+  # Format #
+  ##########
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mbrobbel/rustfmt-check@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
