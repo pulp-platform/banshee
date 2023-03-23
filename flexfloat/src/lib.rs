@@ -918,7 +918,7 @@ pub unsafe fn flexfloat_pack_custom(
     {
         INF_EXP as int_fast16_t
     } else {
-        ((exp - bias) + (BIAS as i64)) as int_fast16_t
+        (exp - bias) + BIAS as int_fast16_t
     };
     let tmp1 = (sign as uint_t) << (NUM_BITS - 1) as uint_t;
     let tmp2 = ((exp as uint_t) << NUM_BITS_FRAC) as uint_t;
