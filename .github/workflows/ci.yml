@@ -1,0 +1,37 @@
+# Copyright 2023 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+name: ci
+on: [push, pull_request]
+
+jobs:
+  ##################
+  # Build and Test #
+  ##################
+  Banshee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        rust:
+        - stable
+        - beta
+        - nightly
+        - 1.63.0   # minimum supported version
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        override: true
+        components: rustfmt
+    - name: Install LLVM
+      run: sudo apt install llvm-12-dev
+    - name: Build Banshee
+      run: cargo build
+    - name: Run Banshee tests
+      run: cargo test --all
+    - name: Run software test
+      run: make test TERM=xterm-256color LOG_FAILED=`mktemp` LOG_TOTAL=`mktemp`
