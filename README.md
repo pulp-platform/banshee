@@ -1,12 +1,77 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 # Banshee
 
 > The Banshee (Old Irish spelling ben síde) is a Dark creature native to Ireland. Banshees are malevolent spirits that have the appearance of women and their cries are fatal to anyone that hears them. The Laughing Potion is effective defence against them.
+
+Banshee is a binary-translation-based, instruction-accurate RISC-V simulator for PULP-based manycore systems like the [Snitch-based architectures](https://github.com/pulp-platform/snitch_cluster) and [MemPool](https://github.com/pulp-platform/mempool).
+
+## Requirements
+
+Banshee currently requires Rust version 1.63.0 and LLVM 12.
+
+To install Rust, visit [Rustup](https://rustup.rs/) and choose the correct version of Rust during the installation process.
+
+If you already have Rust installed, get the specific version of the Rust with:
+
+```bash
+# Install the correct Rust version
+rustup install 1.63.0
+```
+
+To get LLVM on Ubuntu, install the following packages:
+
+```bash
+sudo apt install llvm-12-dev libclang-common-12-dev zlib1g-dev
+```
+
+### Setup at IIS
+
+LLVM is installed globally for internal use at IIS. Make sure to have the following environment variables set to point Banshee to the correct version of LLVM:
+
+<details>
+<summary><b>Bash</b></summary>
+<p>
+
+```bash
+# Set recent compiler for the dependencies
+export CC=gcc-9.2.0
+export CXX=g++-9.2.0
+
+# Point Banshee to LLVM 12
+export LLVM_SYS_120_PREFIX=/usr/pack/llvm-12.0.1-af
+
+# Tell cargo which linker to use
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=/usr/pack/gcc-9.2.0-af/linux-x64/bin/gcc
+```
+
+</p>
+</details>
+
+<details>
+<summary><b>Fish</b></summary>
+<p>
+
+```fish
+# Set recent compiler for the dependencies
+set -x CC gcc-9.2.0
+set -x CXX g++-9.2.0
+
+# Point Banshee to LLVM 12
+set -x LLVM_SYS_120_PREFIX /usr/pack/llvm-12.0.1-af
+
+# Tell cargo which linker to use
+set -x CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER /usr/pack/gcc-9.2.0-af/linux-x64/bin/gcc
+```
+
+</p>
+</details>
 
 ## Installation
 
 Banshee can be installed on your system using cargo as follows:
 
-    cargo instal --path . -f
+    cargo install --path . -f
     banshee --help
 
 To allow the logging levels `debug` and `trace` make sure to install Banshee in debug mode:
@@ -132,17 +197,27 @@ As a hacky workaround, try changing the `llvm-sys = "120"` line to whatever majo
 - Static translation only at the moment
 - Float rounding modes are ignored
 
-## Todo
+## License
 
-- [x] Add instruction tracing
-- [x] Add SSR support
-- [x] Add DMA support
-- [x] Add FREP support
-- [x] Add fast local memory / memory hierarchy
-- [x] Add multi-core execution
-- [x] Add multi-cluster execution
-- [x] Replace all `self.declare_func(..)` in `tran.rs` with decls in `jit.ll`
-- [x] Replace state type in `tran.rs` with decl in `jit.ll`
-- [x] Replace all GEP on state ptr in `tran.rs` with calls into `jit.rs`
-- [ ] Read the DWARF data in the RISC-V binary, and emit that again as part of the translated LLVM IR; which should allow GDB to debug the original source code of the RISC-V binary
-- [ ] Make tracing dynamic (add a callback in `jit.rs`, which allocates a tracing slot, up to the buffer size; allows for SSR tracing)
+Banshee is being made available under the permissive, open-source Apache License 2.0 (`Apache-2.0`). See `LICENSE` for more information.
+
+## Publications
+
+If you use Banshee in your work, you can cite us:
+
+<details>
+<summary><a href="https://ieeexplore.ieee.org/abstract/document/9643546"><b>Banshee: A Fast LLVM-Based RISC-V Binary Translator</b></a></summary>
+<p>
+
+```
+@inproceedings{Riedel2021,
+  author={Riedel, Samuel and Schuiki, Fabian and Scheffler, Paul and Zaruba, Florian and Benini, Luca},
+  booktitle={2021 IEEE/ACM International Conference On Computer Aided Design (ICCAD)},
+  title={Banshee: A Fast {LLVM}-Based {RISC-V} Binary Translator},
+  year={2021},
+  month=nov,
+  pages={1105--1113},
+  publisheer={IEEE},
+  doi={10.1109/ICCAD51958.2021.9643546}
+}
+```
