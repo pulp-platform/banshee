@@ -151,7 +151,7 @@ pub struct ElfTranslator<'a> {
     /// End address of the fast local scratchpad.
     pub tcdm_end: u32,
     /// External TCDM range (Cluster id, start, end)
-    pub tcdm_ext_range: Vec<(u32, u32, u32)>,
+    pub tcdm_range: Vec<(u32, u32, u32)>,
     /// Cluster ID
     pub cluster_id: usize,
 }
@@ -196,18 +196,22 @@ impl<'a> ElfTranslator<'a> {
             );
             (di_builder, di_cu, di_file)
         };
-        let tcdm_ext_range: Vec<_> = engine.config.memory[cluster_id]
-            .ext_tcdm
-            .iter()
+        let tcdm_range: Vec<_> = (0..engine.config.architecture.num_clusters)
             .map(|x| {
                 (
-                    x.cluster,
-                    x.start,
-                    x.start + engine.config.memory[x.cluster as usize].tcdm.end
-                        - engine.config.memory[x.cluster as usize].tcdm.start,
+                    x as u32,
+                    engine.config.memory.tcdm.start + (x as u32) * engine.config.memory.tcdm.offset,
+                    engine.config.memory.tcdm.start
+                        + (x as u32) * engine.config.memory.tcdm.offset as u32
+                        + engine.config.memory.tcdm.size,
                 )
             })
             .collect();
+
+        info!(
+            "tcdm_range for cluster {} is [0x{:x}, 0x{:x}]",
+            &tcdm_range[cluster_id].0, &tcdm_range[cluster_id].1, &tcdm_range[cluster_id].2
+        );
 
         Self {
             elf,
@@ -220,9 +224,12 @@ impl<'a> ElfTranslator<'a> {
             inst_bbs: Default::default(),
             trace: engine.trace,
             latency: engine.latency,
-            tcdm_start: engine.config.memory[cluster_id].tcdm.start,
-            tcdm_end: engine.config.memory[cluster_id].tcdm.end,
-            tcdm_ext_range,
+            tcdm_start: engine.config.memory.tcdm.start
+                + engine.config.memory.tcdm.offset * cluster_id as u32,
+            tcdm_end: engine.config.memory.tcdm.start
+                + engine.config.memory.tcdm.offset * cluster_id as u32
+                + engine.config.memory.tcdm.size,
+            tcdm_range,
             cluster_id,
         }
     }
@@ -1096,7 +1103,7 @@ impl<'a> InstructionTranslator<'a> {
         );
         LLVMBuildRetVoid(self.builder);
 
-        let phi_size = self.section.elf.tcdm_ext_range.len() + 2;
+        let phi_size = self.section.elf.tcdm_range.len() + 2;
         let mut values: Vec<LLVMValueRef> = Vec::with_capacity(phi_size);
         let mut bbs: Vec<LLVMBasicBlockRef> = Vec::with_capacity(phi_size);
 
@@ -1115,7 +1122,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildBr(self.builder, bb_end);
         bbs.push(LLVMGetInsertBlock(self.builder));
 
-        for x in &self.section.elf.tcdm_ext_range {
+        for x in &self.section.elf.tcdm_range {
             LLVMPositionBuilderAtEnd(self.builder, bb_no);
             let (is_tcdm, tcdm_ptr) = self.emit_tcdm_ext_check(addr, *x);
             bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
@@ -1236,7 +1243,7 @@ impl<'a> InstructionTranslator<'a> {
         );
         LLVMBuildRetVoid(self.builder);
 
-        let phi_size = self.section.elf.tcdm_ext_range.len() + 2;
+        let phi_size = self.section.elf.tcdm_range.len() + 2;
         let mut values: Vec<LLVMValueRef> = Vec::with_capacity(phi_size);
         let mut bbs: Vec<LLVMBasicBlockRef> = Vec::with_capacity(phi_size);
 
@@ -1342,7 +1349,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildBr(self.builder, bb_end);
         bbs.push(LLVMGetInsertBlock(self.builder));
 
-        for x in &self.section.elf.tcdm_ext_range {
+        for x in &self.section.elf.tcdm_range {
             LLVMPositionBuilderAtEnd(self.builder, bb_no);
             let (is_tcdm, tcdm_ptr) = self.emit_tcdm_ext_check(addr, *x);
             bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
@@ -6221,16 +6228,12 @@ impl<'a> InstructionTranslator<'a> {
                     is_tcdm,
                     LLVMConstInt(
                         LLVMTypeOf(max_cycle),
-                        self.section.engine.config.memory[self.section.elf.cluster_id]
-                            .tcdm
-                            .latency,
+                        self.section.engine.config.memory.tcdm.latency,
                         0,
                     ),
                     LLVMConstInt(
                         LLVMTypeOf(max_cycle),
-                        self.section.engine.config.memory[self.section.elf.cluster_id]
-                            .dram
-                            .latency,
+                        self.section.engine.config.memory.dram.latency,
                         0,
                     ),
                     NONAME,
@@ -6393,7 +6396,7 @@ impl<'a> InstructionTranslator<'a> {
             NONAME,
         );
 
-        let phi_size = self.section.elf.tcdm_ext_range.len() + 3;
+        let phi_size = self.section.elf.tcdm_range.len() + 3;
         let mut values: Vec<LLVMValueRef> = Vec::with_capacity(phi_size);
         let mut bbs: Vec<LLVMBasicBlockRef> = Vec::with_capacity(phi_size);
 
@@ -6412,7 +6415,7 @@ impl<'a> InstructionTranslator<'a> {
         bbs.push(LLVMGetInsertBlock(self.builder));
 
         // Check if the addess is in one of the external TCDMs, and emit a fast access
-        for x in &self.section.elf.tcdm_ext_range {
+        for x in &self.section.elf.tcdm_range {
             LLVMPositionBuilderAtEnd(self.builder, bb_no);
             let (is_tcdm, tcdm_ptr) = self.emit_tcdm_ext_check(aligned_addr, *x);
             bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
@@ -6530,7 +6533,7 @@ impl<'a> InstructionTranslator<'a> {
         }
 
         // Check if the addess is in one of the external TCDMs, and emit a fast access
-        for x in &self.section.elf.tcdm_ext_range {
+        for x in &self.section.elf.tcdm_range {
             LLVMPositionBuilderAtEnd(self.builder, bb_no);
             let (is_tcdm, tcdm_ptr) = self.emit_tcdm_ext_check(addr, *x);
             bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
@@ -6622,7 +6625,7 @@ impl<'a> InstructionTranslator<'a> {
     unsafe fn emit_tcdm_check(&self, addr: LLVMValueRef) -> (LLVMValueRef, LLVMValueRef) {
         let tcdm_start = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_start as u64, 0);
         let tcdm_end = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_end as u64, 0);
-        let in_range = LLVMBuildAnd(
+        let mut in_range = LLVMBuildAnd(
             self.builder,
             LLVMBuildICmp(self.builder, LLVMIntUGE, addr, tcdm_start, NONAME),
             LLVMBuildICmp(self.builder, LLVMIntULT, addr, tcdm_end, NONAME),
@@ -6639,6 +6642,7 @@ impl<'a> InstructionTranslator<'a> {
             b"ptr_tcdm\0".as_ptr() as *const _,
         );
         let ptr = LLVMBuildBitCast(self.builder, ptr, pty32, NONAME);
+        let in_range = LLVMConstInt(LLVMInt1Type(), 0, 0);
         (in_range, ptr)
     }
 
@@ -6650,7 +6654,7 @@ impl<'a> InstructionTranslator<'a> {
     ) -> (LLVMValueRef, LLVMValueRef) {
         let tcdm_start = LLVMConstInt(LLVMInt32Type(), tcdm_ext.1 as u64, 0);
         let tcdm_end = LLVMConstInt(LLVMInt32Type(), tcdm_ext.2 as u64, 0);
-        let in_range = LLVMBuildAnd(
+        let mut in_range = LLVMBuildAnd(
             self.builder,
             LLVMBuildICmp(self.builder, LLVMIntUGE, addr, tcdm_start, NONAME),
             LLVMBuildICmp(self.builder, LLVMIntULT, addr, tcdm_end, NONAME),
@@ -6664,7 +6668,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMBuildBitCast(self.builder, self.tcdm_ext_ptr(tcdm_ext.0), pty8, NONAME),
             [index].as_mut_ptr(),
             1 as u32,
-            b"ptr_tcdm_ext\0".as_ptr() as *const _,
+            b"ptr_tcdm\0".as_ptr() as *const _,
         );
         let ptr = LLVMBuildBitCast(self.builder, ptr, pty32, NONAME);
         (in_range, ptr)
@@ -7812,18 +7816,24 @@ impl<'a> InstructionTranslator<'a> {
     }
 
     unsafe fn tcdm_ptr(&self) -> LLVMValueRef {
-        self.section
-            .emit_call_with_name("banshee_tcdm_ptr", [self.section.state_ptr], "ptr_tcdm")
+        self.section.emit_call_with_name(
+            "banshee_tcdm_ptr",
+            [
+                self.section.state_ptr,
+                LLVMConstInt(LLVMInt32Type(), self.section.elf.cluster_id as u64, 0),
+            ],
+            "ptr_tcdm",
+        )
     }
 
     unsafe fn tcdm_ext_ptr(&self, id: u32) -> LLVMValueRef {
         self.section.emit_call_with_name(
-            "banshee_tcdm_ext_ptr",
+            "banshee_tcdm_ptr",
             [
                 self.section.state_ptr,
                 LLVMConstInt(LLVMInt32Type(), id as u64, 0),
             ],
-            &format!("ptr_tcdm_ext{}", id),
+            &format!("ptr_tcdm{}", id),
         )
     }
 
