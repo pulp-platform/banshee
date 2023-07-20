@@ -18,6 +18,8 @@ jobs:
         - 1.63.0   # minimum supported version
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: 'true'
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
