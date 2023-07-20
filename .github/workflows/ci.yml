@@ -15,18 +15,12 @@ jobs:
     strategy:
       matrix:
         rust:
-        - stable
-        - beta
-        - nightly
         - 1.63.0   # minimum supported version
     steps:
     - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        profile: minimal
         toolchain: ${{ matrix.rust }}
-        override: true
-        components: rustfmt
     - name: Install LLVM
       run: sudo apt install llvm-12-dev
     - name: Build Banshee
