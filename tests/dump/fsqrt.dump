@@ -6,7 +6,7 @@ Disassembly of section .text:
 
 80010000 <.text>:
 80010000: 97 11 00 00  	auipc	gp, 1
-80010004: 93 81 01 95  	addi	gp, gp, -1712
+80010004: 93 81 01 94  	addi	gp, gp, -1728
 80010008: 6f 00 40 00  	j	0x8001000c <.text+0xc>
 8001000c: 17 01 ff bf  	auipc	sp, 786416
 80010010: 13 01 c1 ff  	addi	sp, sp, -4
@@ -51,10 +51,10 @@ Disassembly of section .text.main:
 8001009c: d3 81 05 f0  	fmv.w.x	ft3, a1
 800100a0: 53 02 05 f0  	fmv.w.x	ft4, a0
 800100a4: 17 05 00 00  	auipc	a0, 0
-800100a8: 13 05 c5 0a  	addi	a0, a0, 172
+800100a8: 13 05 c5 09  	addi	a0, a0, 156
 800100ac: 07 30 05 00  	fld	ft0, 0(a0)
 800100b0: 17 05 00 00  	auipc	a0, 0
-800100b4: 13 05 85 0a  	addi	a0, a0, 168
+800100b4: 13 05 85 09  	addi	a0, a0, 152
 800100b8: 87 30 05 00  	fld	ft1, 0(a0)
 800100bc: 13 05 00 00  	mv	a0, zero
 800100c0: d3 72 00 5a  	fsqrt.d	ft5, ft0
@@ -62,7 +62,7 @@ Disassembly of section .text.main:
 800100c8: 13 05 f5 ff  	addi	a0, a0, -1
 800100cc: 13 35 15 00  	seqz	a0, a0
 800100d0: 97 05 00 00  	auipc	a1, 0
-800100d4: 93 85 05 09  	addi	a1, a1, 144
+800100d4: 93 85 05 08  	addi	a1, a1, 128
 800100d8: 07 a0 05 00  	flw	ft0, 0(a1)
 800100dc: 93 05 00 00  	mv	a1, zero
 800100e0: d3 72 00 58  	fsqrt.s	ft5, ft0
@@ -78,34 +78,28 @@ Disassembly of section .text.main:
 80010108: 93 85 f5 ff  	addi	a1, a1, -1
 8001010c: 93 b5 15 00  	seqz	a1, a1
 80010110: 33 05 b5 00  	add	a0, a0, a1
-80010114: 97 05 00 00  	auipc	a1, 0
-80010118: 93 85 45 05  	addi	a1, a1, 84
-8001011c: 07 b0 05 00  	fld	ft0, 0(a1)
-80010120: 93 05 00 00  	mv	a1, zero
-80010124: d3 f2 01 5e  	fsqrt.b	ft5, ft3
-80010128: 53 73 10 46  	fcvt.b.d	ft6, ft0
-8001012c: d3 25 53 a6  	feq.b	a1, ft6, ft5
-80010130: 93 85 f5 ff  	addi	a1, a1, -1
-80010134: 93 b5 15 00  	seqz	a1, a1
-80010138: 33 05 b5 00  	add	a0, a0, a1
-8001013c: 93 05 40 00  	addi	a1, zero, 4
-80010140: 33 85 a5 40  	sub	a0, a1, a0
-80010144: 67 80 00 00  	ret
+80010114: 93 05 00 00  	mv	a1, zero
+80010118: d3 f2 01 5e  	fsqrt.b	ft5, ft3
+8001011c: 53 f3 10 46  	fcvt.b.d	ft6, ft1
+80010120: d3 25 53 a6  	feq.b	a1, ft6, ft5
+80010124: 93 85 f5 ff  	addi	a1, a1, -1
+80010128: 93 b5 15 00  	seqz	a1, a1
+8001012c: 33 05 b5 00  	add	a0, a0, a1
+80010130: 93 05 40 00  	addi	a1, zero, 4
+80010134: 33 85 a5 40  	sub	a0, a1, a0
+80010138: 67 80 00 00  	ret
 
 Disassembly of section .sdata:
 
-80010150 <.sdata>:
-80010150: 1f 85 eb 51  	<unknown>
-80010154: b8 1e        	<unknown>
-80010156: 09 40        	<unknown>
-80010158: cd bd        	<unknown>
-8001015a: ed 67        	<unknown>
-8001015c: 21 5a        	<unknown>
-8001015e: fc 3f        	<unknown>
-80010160: c3 f5 48 40  	fmadd.s	fa1, fa7, ft4, fs0
-		...
-8001016c: 00 00        	<unknown>
-8001016e: f8 3f        	<unknown>
+80010140 <.sdata>:
+80010140: 1f 85 eb 51  	<unknown>
+80010144: b8 1e        	<unknown>
+80010146: 09 40        	<unknown>
+80010148: cd bd        	<unknown>
+8001014a: ed 67        	<unknown>
+8001014c: 21 5a        	<unknown>
+8001014e: fc 3f        	<unknown>
+80010150: c3 f5 48 40  	fmadd.s	fa1, fa7, ft4, fs0
 
 Disassembly of section .comment:
 
