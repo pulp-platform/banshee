@@ -14,5 +14,4 @@ edition = "2018"
 [dependencies]
 
 [build-dependencies]
-cc = "1.0"
-pkg-config = "0.3"
+cmake = "0.1"

@@ -1,0 +1,3 @@
+[submodule "deps/flexfloat"]
+	path = deps/flexfloat
+	url = git@github.com:oprecomp/flexfloat.git
