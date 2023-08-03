@@ -186,6 +186,12 @@ You can set breakpoints on instructions in the RISC-V binary based on their inde
     (gdb) c
     Breakpoint 2, 0x80010020 () at binary.riscv:9
 
+## Dram Preloading
+
+Banshee supports preloading the DRAM of the target architecture with a binary file. To use this feature, pass the `--file-paths` flag in combination with the `--mem-offsets` flag.
+These flags take a comma-separated list of paths and offsets, respectively. The offsets are given as hexadecimal numbers that represent the address location in the DRAM.
+In order to, convert your data into a binary file, one can use the `bytearray` and `to_bytes` functions in Python. Make sure that you choose little endian as the byte order.
+
 ## Dependencies
 
 Banshee currently requires LLVM 12 to be installed on the system. It is *technically* possible to support multiple LLVM versions through the use of cargo features, but that is not yet implemented.
