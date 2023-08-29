@@ -2,24 +2,13 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
-use bytebuffer::ByteBuffer;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::{
     collections::HashMap,
-    env,
     error::Error,
-    fs,
     fs::File,
-    io::prelude::*,
-    io::{BufReader, ErrorKind, Read, Seek, SeekFrom, Write},
-    process,
-    str::FromStr,
-    sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
-        Mutex,
-    },
+    io::{BufReader, ErrorKind, Read},
 };
-use to_binary::{BinaryError, BinaryString};
 
 pub fn generic_bin_read<const N: usize>(
     bin_path: &str,
@@ -43,8 +32,6 @@ pub fn generic_bin_read<const N: usize>(
             } else {
                 panic!("Error reading file: {}", e);
             }
-
-            return Err(e.into());
         }
 
         // we convert the buffer into a u32

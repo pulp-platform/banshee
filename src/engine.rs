@@ -312,7 +312,7 @@ impl Engine {
 
     pub fn init_periphs(&mut self) {
         debug!("Adding peripherals");
-        (0..self.num_clusters).for_each(|i| {
+        (0..self.num_clusters).for_each(|_| {
             self.peripherals
                 .add_cluster(&self.config.memory.periphs.callbacks)
         })
@@ -499,7 +499,7 @@ impl Engine {
                         );
                     }
                 }
-                if ((ssr.dims != 0) && !(ssr.done)) {
+                if (ssr.dims != 0) && !(ssr.done) {
                     trace!(
                         "Final state hart {}: SSR {} NOT fully consumed.",
                         cpu.hartid,
@@ -509,7 +509,7 @@ impl Engine {
                         "Final state hart {}: SSR {} NOT fully consumed.",
                         cpu.hartid, ssr_id
                     );
-                } else if ((ssr.dims != 0) && ssr.done) {
+                } else if (ssr.dims != 0) && ssr.done {
                     trace!(
                         "Final state hart {}: SSR {} fully consumed.",
                         cpu.hartid,

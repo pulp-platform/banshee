@@ -15,10 +15,7 @@ use llvm_sys::{
     bit_writer::*, core::*, execution_engine::*, initialization::*, support::*, target::*,
 };
 
-use std::{
-    collections::HashMap, ffi::CString, fs, fs::File, io::prelude::*, num::ParseIntError,
-    os::raw::c_int, path::Path, ptr::null_mut, str::FromStr,
-};
+use std::{ffi::CString, os::raw::c_int, path::Path, ptr::null_mut};
 
 pub mod bootroms;
 pub mod configuration;
@@ -32,8 +29,6 @@ pub mod util;
 
 use crate::configuration::*;
 use crate::engine::*;
-
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 
 fn main() -> Result<()> {
     // Parse the command line arguments.
@@ -315,9 +310,9 @@ fn main() -> Result<()> {
                 file_path, mem_offset
             );
             // get memory offset from argument
-            let mut memory_offset = mem_offset.trim_start_matches("0x");
+            let memory_offset = mem_offset.trim_start_matches("0x");
             // turn the string into a u64
-            let mut mem_offset = u64::from_str_radix(memory_offset, 16).unwrap();
+            let mem_offset = u64::from_str_radix(memory_offset, 16).unwrap();
 
             let data = dram_preload::generic_bin_read::<4>(file_path, mem_offset).unwrap();
 
