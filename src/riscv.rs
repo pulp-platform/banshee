@@ -4278,6 +4278,7 @@ pub enum Csr {
     Mhartid = 0xf14,
     Ssr = 0x7c0,
     Fpmode = 0x7c1,
+    Barrier = 0x7c2,
     Htimedeltah = 0x615,
     Cycleh = 0xc80,
     Timeh = 0xc81,
