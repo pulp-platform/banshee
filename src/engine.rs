@@ -778,20 +778,30 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
             }
             // Peripherals
-            x if x
-                >= (self.engine.config.memory.periphs.start
-                    + self.engine.config.memory.periphs.offset)
-                && x < (self.engine.config.memory.periphs.start
-                    + self.engine.config.memory.periphs.offset
-                    + self.engine.config.memory.periphs.size) =>
+            x if (0..self.engine.num_clusters).any(|i| {
+                x >= (self.engine.config.memory.periphs.start
+                    + self.engine.config.memory.periphs.offset * i as u32)
+                    && x < (self.engine.config.memory.periphs.start
+                        + self.engine.config.memory.periphs.offset * i as u32
+                        + self.engine.config.memory.periphs.size)
+            }) =>
             {
                 debug!("Peripheral Binary Load");
-                self.engine.peripherals.load(
-                    self.cluster_id,
-                    addr - (self.engine.config.memory.periphs.start
-                        + self.engine.config.memory.periphs.offset),
-                    size,
-                )
+                debug!("Binary load address: 0x{:x}", x);
+                let id = (0..self.engine.num_clusters)
+                    .position(|i| {
+                        addr >= (self.engine.config.memory.periphs.start
+                            + self.engine.config.memory.periphs.offset * i as u32)
+                            && addr
+                                < (self.engine.config.memory.periphs.start
+                                    + self.engine.config.memory.periphs.offset * i as u32
+                                    + self.engine.config.memory.periphs.size)
+                    })
+                    .unwrap();
+                let periph_addr = addr
+                    - (self.engine.config.memory.periphs.start
+                        + self.engine.config.memory.periphs.offset * id as u32);
+                self.engine.peripherals.load(id, periph_addr, size)
             }
             // Bootrom
             x if x >= self.engine.config.bootrom.start
@@ -888,6 +898,8 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.tcdm.size)
             }) =>
             {
+                debug!("TCDM Binary Store");
+                debug!("Binary store address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.tcdm.start
@@ -913,21 +925,32 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 }
             }
             // Peripherals
-            x if x
-                >= (self.engine.config.memory.periphs.start
-                    + self.engine.config.memory.periphs.offset * self.cluster_id as u32)
-                && x < (self.engine.config.memory.periphs.start
-                    + self.engine.config.memory.periphs.offset * self.cluster_id as u32
-                    + self.engine.config.memory.periphs.size) =>
+            x if (0..self.engine.num_clusters).any(|i| {
+                x >= (self.engine.config.memory.periphs.start
+                    + self.engine.config.memory.periphs.offset * i as u32)
+                    && x < (self.engine.config.memory.periphs.start
+                        + self.engine.config.memory.periphs.offset * i as u32
+                        + self.engine.config.memory.periphs.size)
+            }) =>
             {
-                self.engine.peripherals.store(
-                    self.cluster_id,
-                    addr - (self.engine.config.memory.periphs.start
-                        + self.engine.config.memory.periphs.offset * self.cluster_id as u32),
-                    value,
-                    mask,
-                    size,
-                )
+                debug!("Peripheral Binary store");
+                debug!("Binary store address: 0x{:x}", x);
+                let id = (0..self.engine.num_clusters)
+                    .position(|i| {
+                        addr >= (self.engine.config.memory.periphs.start
+                            + self.engine.config.memory.periphs.offset * i as u32)
+                            && addr
+                                < (self.engine.config.memory.periphs.start
+                                    + self.engine.config.memory.periphs.offset * i as u32
+                                    + self.engine.config.memory.periphs.size)
+                    })
+                    .unwrap();
+                let periph_addr = addr
+                    - (self.engine.config.memory.periphs.start
+                        + self.engine.config.memory.periphs.offset * id as u32);
+                self.engine
+                    .peripherals
+                    .store(id, periph_addr, value, mask, size)
             }
             // Bootrom
             x if x >= self.engine.config.bootrom.start
@@ -1053,6 +1076,12 @@ impl<'a, 'b> Cpu<'a, 'b> {
             riscv::Csr::Misa => {
                 // RV32IMAFDX A - Atomic Instructions extension
                 (1 << 0) | (1 << 3) | (1 << 5) | (1 << 8) | (1 << 12) | (1 << 23) | (1 << 30)
+            }
+            riscv::Csr::Barrier => {
+                // This is Snitch's new, faster CSR-based barrier.
+                // Memory-mapped barriers remain supported in the engine as they are configurable.
+                self.cluster_barrier();
+                0
             }
             _ => 0,
         }
