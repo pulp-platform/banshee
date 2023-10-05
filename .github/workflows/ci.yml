@@ -24,7 +24,7 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
     - name: Install LLVM
-      run: sudo apt install llvm-12-dev
+      run: sudo apt install llvm-12-dev libclang-common-12-dev
     - name: Build Banshee
       run: cargo build
     - name: Run Banshee tests
