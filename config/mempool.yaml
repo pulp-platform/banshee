@@ -11,28 +11,39 @@ address:
   nr_cores: 0x40000010
   uart: 0xC0000000
   # Not supported in MemPool
-  barrier_reg: 0x50000000
+  barrier_reg:
+    start: 0x50000000
+    offset: 0x100000
   cluster_base_hartid: 0x50000001
   cluster_num: 0x50000002
   cluster_id: 0x50000003
   cl_clint: 0x40000060
   clint: 0xFFFF0000
 memory:
-  - tcdm:
-      start: 0x0
-      end: 0x100000
-      latency: 5
-    dram:
-      start: 0x80000000
-      end: 0x80010000
-      latency: 10
-    # Not used in MemPool
-    ext_tcdm: []
-    periphs:
-      callbacks: []
-      end: 0x100000
-      latency: 5
-      start: 0x100000
+  tcdm:
+    start: 0x0
+    size: 0x100000
+    offset: 0x100000
+    latency: 5
+  dram:
+    start: 0x80000000
+    size: 0x01000000
+    offset: 0x0
+    latency: 10
+  periphs:
+    start: 0x40000000
+    size: 0x20000
+    offset: 0x0
+    latency: 5
+    callbacks:
+      - name: zero-memory
+        size: 0x40
+      - name: mempool-ita
+        size: 32
+      - name: zero-memory
+        size: 0xFFA0
+      - name: mempool-dma
+        size: 28
 inst_latency:
   mul: 3
   mulh: 3
