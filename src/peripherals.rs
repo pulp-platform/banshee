@@ -357,8 +357,14 @@ impl Peripheral for MemPoolITA {
             0x0C => self.eps_mul_1.store(value, Ordering::SeqCst),
             0x10 => self.right_shift_0.store(value, Ordering::SeqCst),
             0x14 => self.right_shift_1.store(value, Ordering::SeqCst),
-            0x18 => unsafe {self.add_0.store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)},
-            0x1C => unsafe {self.add_1.store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)},
+            0x18 => unsafe {
+                self.add_0
+                    .store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)
+            },
+            0x1C => unsafe {
+                self.add_1
+                    .store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)
+            },
             _ => unimplemented!(),
         }
     }
@@ -514,9 +520,12 @@ impl MemPoolITA {
         let rqs_shift = u64::to_le_bytes((_right_shift_1 as u64) << 32 | (_right_shift_0 as u64));
         let rqs_add = u64::to_le_bytes((_add_1 as u64) << 32 | (_add_0 as u64)).map(|c| c as i8);
 
-        debug!("[ITA] Start Address 0x{:x}, Out Address 0x{:x}", start, out_address);
+        debug!(
+            "[ITA] Start Address 0x{:x}, Out Address 0x{:x}",
+            start, out_address
+        );
         debug!("[ITA] RQS Mult {:?}", rqs_mult);
-        debug!("[ITA] RQS Shift {:?}",rqs_shift);
+        debug!("[ITA] RQS Shift {:?}", rqs_shift);
         debug!("[ITA] RQS Add {:?}", rqs_add);
 
         let mut q = Array2::<i8>::zeros((64, 64));
@@ -572,7 +581,13 @@ impl MemPoolITA {
         MemPoolITA::projection_space_transformation(&mut q_p, &mut q, &mut w_q, &mut b_q, 1);
         // requantization of q_p
         let mut q_p_requant = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::requantization_3d(&mut q_p, &mut q_p_requant, rqs_mult[0], rqs_shift[0], rqs_add[0]);
+        MemPoolITA::requantization_3d(
+            &mut q_p,
+            &mut q_p_requant,
+            rqs_mult[0],
+            rqs_shift[0],
+            rqs_add[0],
+        );
         // debug!("q_p_requant: {}", q_p_requant);
 
         // key_projection_space_transformation
@@ -583,14 +598,26 @@ impl MemPoolITA {
         MemPoolITA::projection_space_transformation(&mut k_p, &mut k, &mut w_k, &mut b_k, 1);
         // requantization of k_p
         let mut k_p_requant = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::requantization_3d(&mut k_p, &mut k_p_requant, rqs_mult[1], rqs_shift[1], rqs_add[1]);
+        MemPoolITA::requantization_3d(
+            &mut k_p,
+            &mut k_p_requant,
+            rqs_mult[1],
+            rqs_shift[1],
+            rqs_add[1],
+        );
         // debug!("k_p_requant: {}", k_p_requant);
 
         // query_key_correlation
         let mut qk = Array3::<i32>::zeros((1, 64, 64));
         MemPoolITA::query_key_correlation(&mut q_p_requant, &mut k_p_requant, &mut qk);
         // requantization of qk
-        MemPoolITA::requantization_3d(&mut qk, &mut a_requant, rqs_mult[2], rqs_shift[2], rqs_add[2]);
+        MemPoolITA::requantization_3d(
+            &mut qk,
+            &mut a_requant,
+            rqs_mult[2],
+            rqs_shift[2],
+            rqs_add[2],
+        );
         // debug!("a_requant: {}", a_requant);
 
         // streaming_partial_softmax
@@ -601,7 +628,13 @@ impl MemPoolITA {
         MemPoolITA::projection_space_transformation(&mut v_p, &mut v, &mut w_v, &mut b_v, 1);
         // requantization of v_p
         let mut v_p_requant = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::requantization_3d(&mut v_p, &mut v_p_requant, rqs_mult[3], rqs_shift[3], rqs_add[3]);
+        MemPoolITA::requantization_3d(
+            &mut v_p,
+            &mut v_p_requant,
+            rqs_mult[3],
+            rqs_shift[3],
+            rqs_add[3],
+        );
         // debug!("v_p_requant: {}", v_p_requant);
 
         // single_head_computation
@@ -613,14 +646,26 @@ impl MemPoolITA {
         );
         // requantization of o_softmax
         let mut o_softmax_requant = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::requantization_3d(&mut o_softmax, &mut o_softmax_requant, rqs_mult[4], rqs_shift[4], rqs_add[4]);
+        MemPoolITA::requantization_3d(
+            &mut o_softmax,
+            &mut o_softmax_requant,
+            rqs_mult[4],
+            rqs_shift[4],
+            rqs_add[4],
+        );
         // debug!("o_softmax_requant: {}", o_softmax_requant);
 
         // multi_head_computation
         MemPoolITA::multi_head_computation(&mut o_softmax_requant, &mut out, &mut w_o, &mut b_o, 1);
         // parallel requantization of out
         let mut out_requant = Array2::<i8>::zeros((64, 64));
-        MemPoolITA::parallel_requantize3d(&mut out, &mut out_requant, rqs_mult[5], rqs_shift[5], rqs_add[5]);
+        MemPoolITA::parallel_requantize3d(
+            &mut out,
+            &mut out_requant,
+            rqs_mult[5],
+            rqs_shift[5],
+            rqs_add[5],
+        );
         // debug!("out_requant: {}", out_requant);
 
         // for j in 0..out_requant.shape()[1] {
@@ -636,7 +681,9 @@ impl MemPoolITA {
         let mut shifted = ((element * (eps_mult as i32)) >> (right_shift as i32)) + (add as i32);
 
         // Perform rounding half away from zero
-        if right_shift > 0 && ((element * (eps_mult as i32)) >> ((right_shift-1) as i32)) & 0x1 == 1 {
+        if right_shift > 0
+            && ((element * (eps_mult as i32)) >> ((right_shift - 1) as i32)) & 0x1 == 1
+        {
             shifted = shifted.saturating_add(1);
         }
         if shifted > 127 {
@@ -686,13 +733,15 @@ impl MemPoolITA {
                 let row = m.slice(s![i, j, ..]);
                 for k in 0..row.len() {
                     let mut shifted = ((row[k] * (eps_mult as i32)) >> (right_shift as i32))
-                      + m_requant[[i * m.shape()[1] + j, k]] as i32;
+                        + m_requant[[i * m.shape()[1] + j, k]] as i32;
 
                     // Perform rounding half away from zero
-                    if right_shift > 0 && ((row[k]  * (eps_mult as i32)) >> ((right_shift-1) as i32)) & 0x1 == 1 {
+                    if right_shift > 0
+                        && ((row[k] * (eps_mult as i32)) >> ((right_shift - 1) as i32)) & 0x1 == 1
+                    {
                         shifted = shifted.saturating_add(1);
                     }
-                      m_requant[[i * m.shape()[1] + j, k]] =
+                    m_requant[[i * m.shape()[1] + j, k]] =
                         MemPoolITA::requantize_row(shifted, 1, 0, 0);
                 }
             }
