@@ -713,7 +713,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
         }
     }
 
-    fn binary_load(&self, addr: u32, size: u8) -> u32 {
+    pub fn binary_load(&self, addr: u32, size: u8) -> u32 {
         match addr {
             x if x == self.engine.config.address.tcdm_start => {
                 self.engine.config.memory.tcdm.start
@@ -801,7 +801,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 let periph_addr = addr
                     - (self.engine.config.memory.periphs.start
                         + self.engine.config.memory.periphs.offset * id as u32);
-                self.engine.peripherals.load(id, periph_addr, size)
+                self.engine.peripherals.load(&self, id, periph_addr, size)
             }
             // Bootrom
             x if x >= self.engine.config.bootrom.start
@@ -854,7 +854,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
         }
     }
 
-    fn binary_store(&self, addr: u32, value: u32, mask: u32, size: u8) {
+    pub fn binary_store(&self, addr: u32, value: u32, mask: u32, size: u8) {
         match addr {
             x if x == self.engine.config.address.tcdm_start => (), // tcdm_start
             x if x == self.engine.config.address.tcdm_end => (),   // tcdm_end
@@ -950,7 +950,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.periphs.offset * id as u32);
                 self.engine
                     .peripherals
-                    .store(id, periph_addr, value, mask, size)
+                    .store(&self, id, periph_addr, value, mask, size)
             }
             // Bootrom
             x if x >= self.engine.config.bootrom.start
@@ -1053,6 +1053,29 @@ impl<'a, 'b> Cpu<'a, 'b> {
         };
         data.insert(addr as u64, result);
         prev as u32
+    }
+
+    pub fn binary_memcpy(&self, mut dest: u32, mut src: u32, n: u32) {
+        // n in bytes
+        trace!("MEMCPY From {:08x} to {:08x} num: {:08x}", src, dest, n);
+        if dest % 4 == 0 && src % 4 == 0 && n % 4 == 0 {
+            warn!("MEMCPY aligned");
+            // Aligned transfer
+            for _ in 0..n / 4 {
+                let tmp = self.binary_load(src, 2);
+                self.binary_store(dest, tmp, u32::MAX, 2);
+                src += 4;
+                dest += 4;
+            }
+        } else {
+            warn!("MEMCPY unaligned");
+            for _ in 0..n {
+                let tmp = self.binary_load(src, 0);
+                self.binary_store(dest, tmp, (u8::MAX as u32) << (8 * (dest % 4)), 0);
+                src += 1;
+                dest += 1;
+            }
+        }
     }
 
     fn binary_csr_read(&self, csr: riscv::Csr, notrace: u32) -> u32 {
