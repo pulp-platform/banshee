@@ -116,6 +116,8 @@ pub struct Memories {
     pub tcdm: Memory,
     pub dram: Memory,
     pub periphs: MemoryCallback,
+    pub tcdm_alias: bool,
+    pub tcdm_alias_start: u32,
 }
 
 impl Default for Memories {
@@ -140,6 +142,8 @@ impl Default for Memories {
                 latency: 2,
                 callbacks: vec![],
             },
+            tcdm_alias: false,
+            tcdm_alias_start: 0,
         }
     }
 }

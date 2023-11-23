@@ -747,6 +747,23 @@ impl<'a, 'b> Cpu<'a, 'b> {
             } // cluster_base_hartid
             x if x == self.engine.config.address.cluster_num => self.engine.num_clusters as u32, // cluster_num
             x if x == self.engine.config.address.cluster_id => self.cluster_id as u32, // cluster_id
+            // TCDM alias
+            x if (self.engine.config.memory.tcdm_alias
+                && x >= self.engine.config.memory.tcdm_alias_start
+                && x < (self.engine.config.memory.tcdm_alias_start
+                    + self.engine.config.memory.tcdm.size)) =>
+            {
+                debug!("TCDM Alias Binary Load");
+                debug!("Binary load address: 0x{:x}", x);
+                let tcdm_addr = addr
+                    - (self.engine.config.memory.tcdm.start
+                        + self.engine.config.memory.tcdm.offset * self.cluster_id as u32);
+                let word_addr = tcdm_addr / 4;
+                let word_offs = tcdm_addr - 4 * word_addr;
+                let ptr: *const u32 = self.tcdm_ptr[self.cluster_id];
+                let word = unsafe { *ptr.offset(word_addr as isize) };
+                (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
+            }
             // TCDM
             x if (0..self.engine.num_clusters).any(|i| {
                 x >= (self.engine.config.memory.tcdm.start
@@ -885,6 +902,28 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     buffer.clear();
                 } else {
                     buffer.push(value as u8);
+                }
+            }
+            // TCDM alias
+            x if (self.engine.config.memory.tcdm_alias
+                && x >= self.engine.config.memory.tcdm_alias_start
+                && x < (self.engine.config.memory.tcdm_alias_start
+                    + self.engine.config.memory.tcdm.size)) =>
+            {
+                debug!("TCDM Alias Binary Store");
+                debug!("Binary store address: 0x{:x}", x);
+                let tcdm_addr = addr
+                    - (self.engine.config.memory.tcdm.start
+                        + self.engine.config.memory.tcdm.offset * self.cluster_id as u32);
+                let word_addr = tcdm_addr / 4;
+                let word_offs = tcdm_addr - 4 * word_addr;
+                let ptr = self.tcdm_ptr[self.cluster_id] as *const u32;
+                let ptr_mut = ptr as *mut u32;
+                let wmask = ((((1 as u64) << (8 << size)) - 1) as u32) << (8 * word_offs);
+                unsafe {
+                    let word_ptr = ptr_mut.offset(word_addr as isize);
+                    let word = *word_ptr;
+                    *word_ptr = (word & !wmask) | ((value << (8 * word_offs)) & wmask);
                 }
             }
             // TCDM

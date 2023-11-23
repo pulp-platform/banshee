@@ -150,6 +150,12 @@ pub struct ElfTranslator<'a> {
     pub tcdm_start: u32,
     /// End address of the fast local scratchpad.
     pub tcdm_end: u32,
+    /// Whether a fast local scratchpad alias exists.
+    pub tcdm_alias: bool,
+    /// Start address of the fast local scratchpad alias.
+    pub tcdm_alias_start: u32,
+    /// End address of the fast local scratchpad alias.
+    pub tcdm_alias_end: u32,
     /// External TCDM range (Cluster id, start, end)
     pub tcdm_range: Vec<(u32, u32, u32)>,
     /// Cluster ID
@@ -228,6 +234,10 @@ impl<'a> ElfTranslator<'a> {
                 + engine.config.memory.tcdm.offset * cluster_id as u32,
             tcdm_end: engine.config.memory.tcdm.start
                 + engine.config.memory.tcdm.offset * cluster_id as u32
+                + engine.config.memory.tcdm.size,
+            tcdm_alias: engine.config.memory.tcdm_alias,
+            tcdm_alias_start: engine.config.memory.tcdm_alias_start,
+            tcdm_alias_end: engine.config.memory.tcdm_alias_start
                 + engine.config.memory.tcdm.size,
             tcdm_range,
             cluster_id,
@@ -1107,9 +1117,9 @@ impl<'a> InstructionTranslator<'a> {
         let mut values: Vec<LLVMValueRef> = Vec::with_capacity(phi_size);
         let mut bbs: Vec<LLVMBasicBlockRef> = Vec::with_capacity(phi_size);
 
-        // Check if the address is in the TCDM, and emit a fast access.
+        // Check if the address is in the TCDM alias range, and emit a fast access.
         LLVMPositionBuilderAtEnd(self.builder, bb_valid);
-        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_check(addr);
+        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_alias_check(addr);
         let mut bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         let mut bb_no = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         LLVMInsertExistingBasicBlockAfterInsertBlock(self.builder, bb_yes);
@@ -1249,7 +1259,7 @@ impl<'a> InstructionTranslator<'a> {
 
         // Check if the address is in the TCDM, and emit a fast access.
         LLVMPositionBuilderAtEnd(self.builder, bb_valid);
-        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_check(addr);
+        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_alias_check(addr);
         let mut bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         let mut bb_no = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         LLVMInsertExistingBasicBlockAfterInsertBlock(self.builder, bb_yes);
@@ -6222,7 +6232,7 @@ impl<'a> InstructionTranslator<'a> {
 
             let latency = if let Some(access) = mem_access {
                 // Check config
-                let (is_tcdm, _tcdm_ptr) = self.emit_tcdm_check(access.1);
+                let (is_tcdm, _tcdm_ptr) = self.emit_tcdm_alias_check(access.1);
                 LLVMBuildSelect(
                     self.builder,
                     is_tcdm,
@@ -6401,7 +6411,7 @@ impl<'a> InstructionTranslator<'a> {
         let mut bbs: Vec<LLVMBasicBlockRef> = Vec::with_capacity(phi_size);
 
         // Check if the address is in the TCDM, and emit a fast access.
-        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_check(aligned_addr);
+        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_alias_check(aligned_addr);
         let mut bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         let mut bb_no = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         LLVMInsertExistingBasicBlockAfterInsertBlock(self.builder, bb_yes);
@@ -6514,7 +6524,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMInsertExistingBasicBlockAfterInsertBlock(self.builder, bb_end);
 
         // Check if the address is in the TCDM, and emit a fast access.
-        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_check(addr);
+        let (is_tcdm, tcdm_ptr) = self.emit_tcdm_alias_check(addr);
         let mut bb_yes = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         let mut bb_no = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
         LLVMInsertExistingBasicBlockAfterInsertBlock(self.builder, bb_yes);
@@ -6618,19 +6628,25 @@ impl<'a> InstructionTranslator<'a> {
         LLVMPositionBuilderAtEnd(self.builder, bb_end);
     }
 
-    /// Emit the code to check if an address is within the TCDM.
+    /// Emit the code to check if an address is within the TCDM alias if it exists.
     ///
     /// Returns an `i1` indicating whether it is as first result, and a pointer
     /// to that location in the TCDM.
-    unsafe fn emit_tcdm_check(&self, addr: LLVMValueRef) -> (LLVMValueRef, LLVMValueRef) {
-        let tcdm_start = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_start as u64, 0);
-        // let tcdm_end = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_end as u64, 0);
-        // let mut in_range = LLVMBuildAnd(
-        //     self.builder,
-        //     LLVMBuildICmp(self.builder, LLVMIntUGE, addr, tcdm_start, NONAME),
-        //     LLVMBuildICmp(self.builder, LLVMIntULT, addr, tcdm_end, NONAME),
-        //     NONAME,
-        // );
+    unsafe fn emit_tcdm_alias_check(&self, addr: LLVMValueRef) -> (LLVMValueRef, LLVMValueRef) {
+        if !self.section.elf.tcdm_alias {
+            // No TCDM alias defined: return static false
+            let in_range = LLVMConstInt(LLVMInt1Type(), 0, 0);
+            let ptr = LLVMConstInt(LLVMInt32Type(), 0, 0);
+            return (in_range, ptr)
+        }
+        let tcdm_start = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_alias_start as u64, 0);
+        let tcdm_end = LLVMConstInt(LLVMInt32Type(), self.section.elf.tcdm_alias_end as u64, 0);
+        let in_range = LLVMBuildAnd(
+            self.builder,
+            LLVMBuildICmp(self.builder, LLVMIntUGE, addr, tcdm_start, NONAME),
+            LLVMBuildICmp(self.builder, LLVMIntULT, addr, tcdm_end, NONAME),
+            NONAME,
+        );
         let index = LLVMBuildSub(self.builder, addr, tcdm_start, NONAME);
         let pty32 = LLVMPointerType(LLVMInt32Type(), 0);
         let pty8 = LLVMPointerType(LLVMInt8Type(), 0);
@@ -6642,7 +6658,6 @@ impl<'a> InstructionTranslator<'a> {
             b"ptr_tcdm\0".as_ptr() as *const _,
         );
         let ptr = LLVMBuildBitCast(self.builder, ptr, pty32, NONAME);
-        let in_range = LLVMConstInt(LLVMInt1Type(), 0, 0);
         (in_range, ptr)
     }
 
