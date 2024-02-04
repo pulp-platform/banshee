@@ -158,7 +158,7 @@ fn main() -> Result<()> {
         .get_matches();
 
     // Configure the logger.
-    pretty_env_logger::init_custom_env("SNITCH_LOG");
+    pretty_env_logger::init_custom_env("BANSHEE_LOG");
 
     // Initialize the LLVM core.
     let context = unsafe {
