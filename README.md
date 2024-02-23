@@ -89,7 +89,7 @@ Run a binary as follows:
 
 If you make any changes to `src/runtime.rs` or the `../riscv-opcodes`, run `make` to update the `src/runtime.ll` and `src/riscv.rs` files.
 
-To enable logging output, set the `SNITCH_LOG` environment variable to `error`, `warn`, `info`, `debug`, or `trace`. More detailed [configurations](https://docs.rs/env_logger) are possible.
+To enable logging output, set the `BANSHEE_LOG` environment variable to `error`, `warn`, `info`, `debug`, or `trace`. More detailed [configurations](https://docs.rs/env_logger) are possible.
 
 For larger executable you might encounter segmentation faults due to an insufficient stack size. To increase the stack size of the emulation threads set the `RUST_MIN_STACK` environment variable to the desired number of bytes (default is 2MiB). ([More Information](https://doc.rust-lang.org/std/thread/#stack-size))
 
@@ -117,7 +117,7 @@ Piping the output into `sort` will cause the trace to be sorted by cycle and har
     00000005 0005 80010010  x5:20000028 […]   # sw      a0, 0(t0)
     00000006 0005 80010014                    # wfi (args unknown)
 
-**Caution:** Piping the stdout through `spike-dasm` can cause the instruction trace to look delayed with respect to debug and trace logs (which run through stderr), if you have them enabled in `SNITCH_LOG`. This is just a visual artifact.
+**Caution:** Piping the stdout through `spike-dasm` can cause the instruction trace to look delayed with respect to debug and trace logs (which run through stderr), if you have them enabled in `BANSHEE_LOG`. This is just a visual artifact.
 
 ### Unit Tests
 
