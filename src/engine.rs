@@ -380,8 +380,8 @@ impl Engine {
                                 + self.config.memory.tcdm.offset * i as u32
                                 + self.config.memory.tcdm.size)
                     {
-                        debug!("Entering TCDM allocation section.");
-                        debug!(
+                        trace!("Entering TCDM allocation section.");
+                        trace!(
                             "Writing value into position: 0x{:x}",
                             ((addr
                                 - ((self.config.memory.tcdm.start
@@ -756,8 +756,8 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.tcdm.size)
             }) =>
             {
-                debug!("TCDM Binary Load");
-                debug!("Binary load address: 0x{:x}", x);
+                trace!("TCDM Binary Load");
+                trace!("Binary load address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.tcdm.start
@@ -786,8 +786,8 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.periphs.size)
             }) =>
             {
-                debug!("Peripheral Binary Load");
-                debug!("Binary load address: 0x{:x}", x);
+                trace!("Peripheral Binary Load");
+                trace!("Binary load address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.periphs.start
@@ -898,8 +898,8 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.tcdm.size)
             }) =>
             {
-                debug!("TCDM Binary Store");
-                debug!("Binary store address: 0x{:x}", x);
+                trace!("TCDM Binary Store");
+                trace!("Binary store address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.tcdm.start
@@ -933,8 +933,8 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.periphs.size)
             }) =>
             {
-                debug!("Peripheral Binary store");
-                debug!("Binary store address: 0x{:x}", x);
+                trace!("Peripheral Binary store");
+                trace!("Binary store address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.periphs.start
@@ -1059,7 +1059,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
         // n in bytes
         trace!("MEMCPY From {:08x} to {:08x} num: {:08x}", src, dest, n);
         if dest % 4 == 0 && src % 4 == 0 && n % 4 == 0 {
-            warn!("MEMCPY aligned");
+            // trace!("MEMCPY aligned");
             // Aligned transfer
             for _ in 0..n / 4 {
                 let tmp = self.binary_load(src, 2);
@@ -1068,7 +1068,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 dest += 4;
             }
         } else {
-            warn!("MEMCPY unaligned");
+            // trace!("MEMCPY unaligned");
             for _ in 0..n {
                 let tmp = self.binary_load(src, 0);
                 self.binary_store(dest, tmp, (u8::MAX as u32) << (8 * (dest % 4)), 0);
