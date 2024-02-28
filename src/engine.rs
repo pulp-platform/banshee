@@ -1059,7 +1059,6 @@ impl<'a, 'b> Cpu<'a, 'b> {
         // n in bytes
         trace!("MEMCPY From {:08x} to {:08x} num: {:08x}", src, dest, n);
         if dest % 4 == 0 && src % 4 == 0 && n % 4 == 0 {
-            // trace!("MEMCPY aligned");
             // Aligned transfer
             for _ in 0..n / 4 {
                 let tmp = self.binary_load(src, 2);
@@ -1068,7 +1067,6 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 dest += 4;
             }
         } else {
-            // trace!("MEMCPY unaligned");
             for _ in 0..n {
                 let tmp = self.binary_load(src, 0);
                 self.binary_store(dest, tmp, (u8::MAX as u32) << (8 * (dest % 4)), 0);
