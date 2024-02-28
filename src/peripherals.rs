@@ -6,7 +6,7 @@
 use crate::configuration::Callback;
 use crate::Cpu;
 use ndarray::{s, Array1, Array2, Array3};
-use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use PeriphReq::{Load, Store};
 
 /// Reference held by execution engine, referencing each peripheral instance in each cluster
@@ -306,99 +306,163 @@ impl Peripheral for MemPoolDMA {
 
 #[derive(Default)]
 struct MemPoolITA {
-    config: AtomicU32,
-    start_address: AtomicU32,
-    eps_mul_0: AtomicU32,
-    eps_mul_1: AtomicU32,
-    right_shift_0: AtomicU32,
-    right_shift_1: AtomicU32,
-    add_0: AtomicI32,
-    add_1: AtomicI32,
+    state: [AtomicU32; 4],
+    start_addr: [AtomicU32; 4],
+    out_addr: [AtomicU32; 4],
+    rqs_addr: [AtomicU32; 4],
+    seq_len: [AtomicU32; 4],
+    emb_len: [AtomicU32; 4],
+    proj_len: [AtomicU32; 4],
 }
-
 impl Peripheral for MemPoolITA {
     /// should return the same name as in the config file
     fn get_name(&self) -> &'static str {
         "mempool-ita"
     }
+
     /// store instruction
     fn store(&self, cpu: &Cpu, addr: u32, value: u32, _mask: u32, _size: u8) {
+        // debug!("[ITA  , CPU {}] Store to 0x{:02x}", &cpu.hartid, addr);
+        let i = addr as usize / 0x30;
+        let addr = addr as usize % 0x30;
+
         match addr {
             0x00 => unsafe {
-                self.config.store(value as u32, Ordering::SeqCst);
+                self.state[i].store(value as u32, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store state 0x{:02x}",
+                    i, &cpu.hartid, value
+                );
                 // Out addresses are currently hardcoded in ITA
-                let out_addresses: [u32; 4] = [0x000C3000, 0x000D3000, 0x000E3000, 0x000F3000];
-                let head_config = std::mem::transmute::<u32, [u8; 4]>(value);
-                let mut return_value = 0;
-                debug!("[ITA] Store config {:x}", value);
-                for (i, c) in head_config.iter().enumerate() {
-                    if *c & 0x1 == 1 {
-                        // Start ITA
-                        self.run_ita(
-                            cpu,
-                            self.start_address.load(Ordering::SeqCst),
-                            out_addresses[i],
-                            self.eps_mul_0.load(Ordering::SeqCst),
-                            self.eps_mul_1.load(Ordering::SeqCst),
-                            self.right_shift_0.load(Ordering::SeqCst),
-                            self.right_shift_1.load(Ordering::SeqCst),
-                            self.add_0.load(Ordering::SeqCst),
-                            self.add_1.load(Ordering::SeqCst),
-                        );
-                        // Set `config` to done
-                        return_value |= 0x1a << (8 * i);
-                    }
+                let mut return_value = value;
+                if value & 0x1 == 1 {
+                    // Start ITA
+                    self.run_ita(
+                        cpu,
+                        self.start_addr[i].load(Ordering::SeqCst),
+                        // All ITA cores fetch the Q and K vector always from the address specified to core 0
+                        self.start_addr[0].load(Ordering::SeqCst),
+                        self.out_addr[i].load(Ordering::SeqCst),
+                        self.rqs_addr[i].load(Ordering::SeqCst),
+                        self.seq_len[i].load(Ordering::SeqCst),
+                        self.emb_len[i].load(Ordering::SeqCst),
+                        self.proj_len[i].load(Ordering::SeqCst),
+                        16,
+                    );
+                    // Set busy flag
+                    return_value |= 0x2;
+                    // Clear start flag
+                    return_value &= !0x1;
+
+                    self.state[i].store(return_value, Ordering::SeqCst);
+                    info!("[ITA {}, CPU {}] Done.", i, &cpu.hartid);
+                    info!(
+                        "[ITA {}, CPU {}] Store state 0x{:02x}",
+                        i, &cpu.hartid, return_value
+                    );
                 }
-                self.config.store(return_value, Ordering::SeqCst);
-                debug!("[ITA] Save config {:x}", return_value);
             },
-            0x04 => self.start_address.store(value as u32, Ordering::SeqCst),
-            0x08 => self.eps_mul_0.store(value, Ordering::SeqCst),
-            0x0C => self.eps_mul_1.store(value, Ordering::SeqCst),
-            0x10 => self.right_shift_0.store(value, Ordering::SeqCst),
-            0x14 => self.right_shift_1.store(value, Ordering::SeqCst),
-            0x18 => unsafe {
-                self.add_0
-                    .store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)
-            },
-            0x1C => unsafe {
-                self.add_1
-                    .store(std::mem::transmute::<u32, i32>(value), Ordering::SeqCst)
-            },
+            0x04 => {
+                self.start_addr[i].store(value as u32, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store start address 0x{:08x}",
+                    i, &cpu.hartid, value
+                )
+            }
+            0x08 => {
+                self.out_addr[i].store(value as u32, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store out address 0x{:08x}",
+                    i, &cpu.hartid, value
+                )
+            }
+            0x0C => {
+                self.rqs_addr[i].store(value as u32, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store rqs_addr 0x{:016x}",
+                    i, &cpu.hartid, value
+                )
+            }
+            0x10 => {
+                self.seq_len[i].store(value, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store seq_len 0x{:016x}",
+                    i, &cpu.hartid, value
+                )
+            }
+            0x14 => {
+                self.emb_len[i].store(value, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store emb_len 0x{:016x}",
+                    i, &cpu.hartid, value
+                )
+            }
+            0x18 => {
+                self.proj_len[i].store(value, Ordering::SeqCst);
+                info!(
+                    "[ITA {}, CPU {}] Store proj_len 0x{:016x}",
+                    i, &cpu.hartid, value
+                )
+            }
             _ => unimplemented!(),
         }
     }
     /// load instruction
-    fn load(&self, _cpu: &Cpu, addr: u32, _size: u8) -> u32 {
+    fn load(&self, cpu: &Cpu, addr: u32, _size: u8) -> u32 {
+        let i = addr as usize / 0x30;
+        let addr = addr as usize % 0x30;
+
         match addr {
             0x00 => {
-                let conf = self.config.load(Ordering::SeqCst);
-                if conf == 0x1a1a1a1a {
-                    self.config.store(0x04040404, Ordering::SeqCst);
+                let state = self.state[i].load(Ordering::SeqCst) & 0xFF;
+                info!(
+                    "[ITA {}, CPU {}] Read state 0x{:02x}",
+                    i, &cpu.hartid, state
+                );
+
+                let busy_flag = state & 0x02;
+
+                // WIESEP: As we have no timing model, just set the done flag if the busy flag is set
+                if busy_flag == 0x02 {
+                    let mut new_state = state;
+                    // Clear the busy flag
+                    new_state &= !0x02;
+
+                    // Set the done flag
+                    new_state |= 0x4;
+                    self.state[i].store(new_state, Ordering::SeqCst);
+                    info!(
+                        "[ITA {}, CPU {}] > ITA is done -> store state 0x{:02x}",
+                        i, &cpu.hartid, new_state
+                    );
                 }
-                conf
+                state
             }
-            0x04 => self.start_address.load(Ordering::SeqCst),
-            0x08 => self.eps_mul_0.load(Ordering::SeqCst),
-            0x0C => self.eps_mul_1.load(Ordering::SeqCst),
-            0x10 => self.right_shift_0.load(Ordering::SeqCst),
-            0x14 => self.right_shift_1.load(Ordering::SeqCst),
-            0x18 => unsafe { std::mem::transmute::<i32, u32>(self.add_0.load(Ordering::SeqCst)) },
-            0x1C => unsafe { std::mem::transmute::<i32, u32>(self.add_1.load(Ordering::SeqCst)) },
+            0x04 => self.start_addr[i].load(Ordering::SeqCst),
+            0x08 => self.out_addr[i].load(Ordering::SeqCst),
+            0x0C => self.rqs_addr[i].load(Ordering::SeqCst),
+            0x10 => self.seq_len[i].load(Ordering::SeqCst),
+            0x14 => self.emb_len[i].load(Ordering::SeqCst),
+            0x18 => self.proj_len[i].load(Ordering::SeqCst),
             _ => unimplemented!(),
         }
     }
 }
 
 impl MemPoolITA {
-    fn transpose_3d(data: &mut Array3<i8>, m: u32, n: u32, p: u32) {
-        let copy = data.clone();
+    fn transpose_2d_arrays<T>(array: &mut Array3<T>) -> Array3<T>
+    where
+        T: Clone,
+    {
+        return array.to_owned().permuted_axes([0, 2, 1]);
+    }
+
+    unsafe fn ita_load_2d_i32(cpu: &Cpu, data: &mut Array2<i32>, mut address: u32, m: u32, n: u32) {
         for j in 0..m {
             for i in 0..n {
-                for h in 0..p {
-                    data[[j as usize, i as usize, h as usize]] =
-                        copy[[j as usize, h as usize, i as usize]];
-                }
+                let word = cpu.binary_load(address, 2);
+                data[[j as usize, i as usize]] = word as i32;
+                address += 4;
             }
         }
     }
@@ -474,10 +538,14 @@ impl MemPoolITA {
                     // let word = std::mem::transmute::<[u8; 4], u32>(elements);
                     let word = u32::from_ne_bytes(elements);
                     cpu.binary_store(address + address_offset, word, u32::MAX, 2);
-                    for y in 0..4 {
-                        let _stest = cpu.binary_load(address + address_offset + y, 2);
-                    }
-                    trace!("[ITA] Store OUT to 0x{:x}", address + address_offset);
+                    // for y in 0..4 {
+                    //     let _stest = cpu.binary_load(address + address_offset + y, 2);
+                    // }
+                    debug!(
+                        "[ITA, CPU {}] Store OUT to 0x{:x}",
+                        &cpu.hartid,
+                        address + address_offset
+                    );
                     address_offset += 4;
                     // if address_offset % 0x100 == 0 {
                     //     address_offset -= 0x0100;
@@ -492,95 +560,191 @@ impl MemPoolITA {
         &self,
         cpu: &Cpu,
         start_address: u32,
+        start_address_core0: u32,
         out_address: u32,
-        _eps_mult_0: u32,
-        _eps_mult_1: u32,
-        _right_shift_0: u32,
-        _right_shift_1: u32,
-        _add_0: i32,
-        _add_1: i32,
+        rqs_address: u32,
+        seq_len: u32,
+        emb_len: u32,
+        proj_len: u32,
+        processing_engines: u32,
     ) {
-        // TODO `eps_mult` and `right_shift` are currently hardcoded
         // Setup of matrices for query_projection_space_transformation and key_projection_space_transformation
         // Sequence of addresses are hardcoded
         let start = start_address;
-        let offset = 64 * 64;
-        let w4_addr = start + offset * 0;
-        let w3_addr = start + offset * 1;
-        let w2_addr = start + offset * 2;
-        let q_addr = start + offset * 3;
-        let k_addr = start + offset * 4;
-        let w1_addr = start + offset * 5;
-        let b4_addr = start + offset * 6;
-        let b3_addr = start + offset * 7;
-        let b2_addr = start + offset * 8;
-        let b1_addr = start + offset * 9;
+        let w_o_addr = start;
+        let w_v_addr = start + proj_len * emb_len;
+        let w_k_addr = start + proj_len * emb_len * 2;
+        let w_q_addr = start + proj_len * emb_len * 3 + seq_len * emb_len * 2;
+        let b_o_addr = start + proj_len * emb_len * 4 + seq_len * emb_len * 2;
+        let b_v_addr = start + proj_len * emb_len * 4 + seq_len * emb_len * 2 + emb_len * 4; // 32 bit biases
+        let b_k_addr =
+            start + proj_len * emb_len * 4 + seq_len * emb_len * 2 + emb_len * 4 + proj_len * 4; // 32 bit biases
+        let b_q_addr =
+            start + proj_len * emb_len * 4 + seq_len * emb_len * 2 + emb_len * 4 + proj_len * 8; // 32 bit biases
 
-        let rqs_mult = u64::to_le_bytes((_eps_mult_1 as u64) << 32 | (_eps_mult_0 as u64));
-        let rqs_shift = u64::to_le_bytes((_right_shift_1 as u64) << 32 | (_right_shift_0 as u64));
-        let rqs_add = u64::to_le_bytes((_add_1 as u64) << 32 | (_add_0 as u64)).map(|c| c as i8);
+        let q_addr = start_address_core0 + proj_len * emb_len * 3;
+        let k_addr = start_address_core0 + proj_len * emb_len * 3 + seq_len * emb_len;
+
+        let mult_address = cpu.binary_load(rqs_address + 0x00, 2);
+        let shift_address = cpu.binary_load(rqs_address + 0x04, 2);
+        let add_address = cpu.binary_load(rqs_address + 0x08, 2);
+
+        let rqs_mult_w1 = u32::to_ne_bytes(cpu.binary_load(mult_address + 0x00, 2));
+        let rqs_mult_w2 = u32::to_ne_bytes(cpu.binary_load(mult_address + 0x04, 2));
+
+        let rqs_mult: [u8; 6] = [
+            rqs_mult_w1[0],
+            rqs_mult_w1[1],
+            rqs_mult_w1[2],
+            rqs_mult_w1[3],
+            rqs_mult_w2[0],
+            rqs_mult_w2[1],
+        ];
+
+        let rqs_shift_w1 = u32::to_ne_bytes(cpu.binary_load(shift_address + 0x00, 2));
+        let rqs_shift_w2: [u8; 4] = u32::to_ne_bytes(cpu.binary_load(shift_address + 0x04, 2));
+
+        let rqs_shift: [u8; 6] = [
+            rqs_shift_w1[0],
+            rqs_shift_w1[1],
+            rqs_shift_w1[2],
+            rqs_shift_w1[3],
+            rqs_shift_w2[0],
+            rqs_shift_w2[1],
+        ];
+
+        let rqs_add: [i32; 6] = [
+            cpu.binary_load(add_address + 0x00, 2) as i32,
+            cpu.binary_load(add_address + 0x04, 2) as i32,
+            cpu.binary_load(add_address + 0x08, 2) as i32,
+            cpu.binary_load(add_address + 0x0C, 2) as i32,
+            cpu.binary_load(add_address + 0x10, 2) as i32,
+            cpu.binary_load(add_address + 0x14, 2) as i32,
+        ];
+
+        debug!("[ITA, CPU {}] w_o_addr 0x{:x}", &cpu.hartid, w_o_addr);
+        debug!("[ITA, CPU {}] w_v_addr 0x{:x}", &cpu.hartid, w_v_addr);
+        debug!("[ITA, CPU {}] w_k_addr 0x{:x}", &cpu.hartid, w_k_addr);
+        debug!("[ITA, CPU {}] q_addr   0x{:x}", &cpu.hartid, q_addr);
+        debug!("[ITA, CPU {}] k_addr   0x{:x}", &cpu.hartid, k_addr);
+        debug!("[ITA, CPU {}] w_q_addr 0x{:x}", &cpu.hartid, w_q_addr);
+        debug!("[ITA, CPU {}] b_o_addr 0x{:x}", &cpu.hartid, b_o_addr);
+        debug!("[ITA, CPU {}] b_v_addr 0x{:x}", &cpu.hartid, b_v_addr);
+        debug!("[ITA, CPU {}] b_k_addr 0x{:x}", &cpu.hartid, b_k_addr);
+        debug!("[ITA, CPU {}] b_q_addr 0x{:x}", &cpu.hartid, b_q_addr);
 
         debug!(
-            "[ITA] Start Address 0x{:x}, Out Address 0x{:x}",
-            start, out_address
+            "[ITA, CPU {}] mult_address  0x{:x}",
+            &cpu.hartid, mult_address
         );
-        debug!("[ITA] RQS Mult {:?}", rqs_mult);
-        debug!("[ITA] RQS Shift {:?}", rqs_shift);
-        debug!("[ITA] RQS Add {:?}", rqs_add);
+        debug!(
+            "[ITA, CPU {}] shift_address 0x{:x}",
+            &cpu.hartid, shift_address
+        );
+        debug!(
+            "[ITA, CPU {}] add_address   0x{:x}",
+            &cpu.hartid, add_address
+        );
 
-        let mut q = Array2::<i8>::zeros((64, 64));
-        MemPoolITA::ita_load_2d(cpu, &mut q, q_addr, 64, 64, 4);
-        let mut w_q = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut w_q, w1_addr, 1, 64, 64, 4);
-        MemPoolITA::transpose_3d(&mut w_q, 1, 64, 64);
+        let split_e = emb_len / processing_engines;
+        let split_p = proj_len / processing_engines;
 
-        let mut k = Array2::<i8>::zeros((64, 64));
-        MemPoolITA::ita_load_2d(cpu, &mut k, k_addr, 64, 64, 4);
+        debug!(
+            "[ITA, CPU {}] Start Address 0x{:x}, Out Address 0x{:x}",
+            &cpu.hartid, start, out_address
+        );
+        debug!("[ITA, CPU {}] RQS Mult {:?}", &cpu.hartid, rqs_mult);
+        debug!("[ITA, CPU {}] RQS Shift {:?}", &cpu.hartid, rqs_shift);
+        debug!("[ITA, CPU {}] RQS Add {:?}", &cpu.hartid, rqs_add);
+        debug!(
+            "[ITA, CPU {}] S {:?}, E {:?}, P {:?}",
+            &cpu.hartid, seq_len, emb_len, proj_len
+        );
+        debug!(
+            "[ITA, CPU {}] Split E {:?}, Split P {:?}",
+            &cpu.hartid, split_e, split_p
+        );
 
-        let mut w_k = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut w_k, w2_addr, 1, 64, 64, 1);
-        MemPoolITA::transpose_3d(&mut w_k, 1, 64, 64);
+        let mut q = Array2::<i8>::zeros((seq_len as usize, emb_len as usize));
+        MemPoolITA::ita_load_2d(cpu, &mut q, q_addr, seq_len, emb_len, split_e);
+        debug!("[ITA, CPU {}] q.shape: {:?}", &cpu.hartid, q.shape());
+        debug!("[ITA, CPU {}] q: {}", &cpu.hartid, q);
+
+        let mut w_q = Array3::<i8>::zeros((1, proj_len as usize, emb_len as usize));
+        MemPoolITA::ita_load_3d(cpu, &mut w_q, w_q_addr, 1, proj_len, emb_len, split_e);
+        // MemPoolITA::transpose_3d(&mut w_q, 1, proj_len, emb_len);
+        w_q = MemPoolITA::transpose_2d_arrays(&mut w_q);
+        debug!("[ITA, CPU {}] w_q.shape: {:?}", &cpu.hartid, w_q.shape());
+        debug!("[ITA, CPU {}] w_q: {}", &cpu.hartid, w_q);
+
+        let mut k = Array2::<i8>::zeros((seq_len as usize, emb_len as usize));
+        MemPoolITA::ita_load_2d(cpu, &mut k, k_addr, seq_len, emb_len, split_e);
+        debug!("[ITA, CPU {}] k.shape: {:?}", &cpu.hartid, k.shape());
+        debug!("[ITA, CPU {}] k: {}", &cpu.hartid, k);
+
+        let mut w_k = Array3::<i8>::zeros((1, proj_len as usize, emb_len as usize));
+        MemPoolITA::ita_load_3d(cpu, &mut w_k, w_k_addr, 1, proj_len, emb_len, 1);
+        // MemPoolITA::transpose_3d(&mut w_k, 1, proj_len, emb_len);
+        w_k = MemPoolITA::transpose_2d_arrays(&mut w_k);
+        debug!("[ITA, CPU {}] w_k.shape: {:?}", &cpu.hartid, w_k.shape());
+        debug!("[ITA, CPU {}] w_k: {}", &cpu.hartid, w_k);
 
         // Setup of matrices for value_projection_space_transformation
-        let mut b_v = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut b_v, b3_addr, 1, 64, 64, 4);
-        MemPoolITA::transpose_3d(&mut b_v, 1, 64, 64);
+        let mut b_v = Array2::<i32>::zeros((1, proj_len as usize));
+        MemPoolITA::ita_load_2d_i32(cpu, &mut b_v, b_v_addr, 1, proj_len);
+        // MemPoolITA::transpose_3d(&mut b_v, 1, seq_len, proj_len);
+        debug!("[ITA, CPU {}] b_v.shape: {:?}", &cpu.hartid, b_v.shape());
+        debug!("[ITA, CPU {}] b_v: {}", &cpu.hartid, b_v);
 
         let mut v = k.clone();
-        let mut w_v = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut w_v, w3_addr, 1, 64, 64, 1);
-        MemPoolITA::transpose_3d(&mut w_v, 1, 64, 64);
+        let mut w_v = Array3::<i8>::zeros((1, proj_len as usize, emb_len as usize));
+        MemPoolITA::ita_load_3d(cpu, &mut w_v, w_v_addr, 1, proj_len, emb_len, 1);
+        // MemPoolITA::transpose_3d(&mut w_v, 1, proj_len, emb_len);
+        w_v = MemPoolITA::transpose_2d_arrays(&mut w_v);
+        debug!("[ITA, CPU {}] w_v.shape: {:?}", &cpu.hartid, w_v.shape());
+        debug!("[ITA, CPU {}] w_v: {}", &cpu.hartid, w_v);
 
-        let mut v_p = Array3::<i32>::zeros((1, 64, 64));
+        let mut v_p = Array3::<i32>::zeros((1, seq_len as usize, proj_len as usize));
 
         // matrices in the query_projection_space_transformation
-        let mut b_q = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut b_q, b1_addr, 1, 64, 64, 4);
-        let mut q_p = Array3::<i32>::zeros((1, 64, 64));
+        let mut b_q = Array2::<i32>::zeros((1, proj_len as usize));
+        MemPoolITA::ita_load_2d_i32(cpu, &mut b_q, b_q_addr, 1, proj_len);
+        debug!("[ITA, CPU {}] b_q.shape: {:?}", &cpu.hartid, b_q.shape());
+        debug!("[ITA, CPU {}] b_q: {}", &cpu.hartid, b_q);
+        let mut q_p = Array3::<i32>::zeros((1, seq_len as usize, proj_len as usize));
 
         // matrices in the key_projection_space_transformation
-        let mut b_k = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut b_k, b2_addr, 1, 64, 64, 4);
+        let mut b_k = Array2::<i32>::zeros((1, proj_len as usize));
+        MemPoolITA::ita_load_2d_i32(cpu, &mut b_k, b_k_addr, 1, proj_len);
+        debug!("[ITA, CPU {}] b_k.shape: {:?}", &cpu.hartid, b_k.shape());
+        debug!("[ITA, CPU {}] b_k: {}", &cpu.hartid, b_k);
 
-        let mut k_p = Array3::<i32>::zeros((1, 64, 64));
+        let mut k_p = Array3::<i32>::zeros((1, seq_len as usize, proj_len as usize));
 
         // matrices in the streaming_partial_softmax
-        let mut a_requant = Array3::<i8>::zeros((1, 64, 64));
-        let mut a_partial_softmax = Array2::<i32>::zeros((64, 64));
+        let mut a_requant = Array3::<i8>::zeros((1, seq_len as usize, seq_len as usize));
+        let mut a_partial_softmax = Array2::<i32>::zeros((seq_len as usize, seq_len as usize));
 
         // matrices in multi_head_computation
-        let mut out = Array3::<i32>::zeros((1, 64, 64));
-        let mut b_o = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut b_o, b4_addr, 1, 64, 64, 4);
-        let mut w_o = Array3::<i8>::zeros((1, 64, 64));
-        MemPoolITA::ita_load_3d(cpu, &mut w_o, w4_addr, 1, 64, 64, 1);
-        MemPoolITA::transpose_3d(&mut w_o, 1, 64, 64);
+        let mut out = Array3::<i32>::zeros((1, seq_len as usize, emb_len as usize));
+        let mut b_o = Array2::<i32>::zeros((1, emb_len as usize));
+        MemPoolITA::ita_load_2d_i32(cpu, &mut b_o, b_o_addr, 1, emb_len);
+
+        debug!("[ITA, CPU {}] b_o.shape: {:?}", &cpu.hartid, b_o.shape());
+        debug!("[ITA, CPU {}] b_o: {}", &cpu.hartid, b_o);
+
+        let mut w_o = Array3::<i8>::zeros((1, emb_len as usize, proj_len as usize));
+        MemPoolITA::ita_load_3d(cpu, &mut w_o, w_o_addr, 1, emb_len, proj_len, 1);
+        // MemPoolITA::transpose_3d(&mut w_o, 1, proj_len, emb_len);
+        w_o = MemPoolITA::transpose_2d_arrays(&mut w_o);
+        debug!("[ITA, CPU {}] w_o.shape: {:?}", &cpu.hartid, w_o.shape());
+        debug!("[ITA, CPU {}] w_o: {}", &cpu.hartid, w_o);
 
         // query_projection_space_transformation
         // query_projection_space_transformation(&mut q_p, &mut q, &mut w_q, &mut b_q, 1);
         MemPoolITA::projection_space_transformation(&mut q_p, &mut q, &mut w_q, &mut b_q, 1);
         // requantization of q_p
-        let mut q_p_requant = Array3::<i8>::zeros((1, 64, 64));
+        let mut q_p_requant = Array3::<i8>::zeros((1, seq_len as usize, proj_len as usize));
         MemPoolITA::requantization_3d(
             &mut q_p,
             &mut q_p_requant,
@@ -588,7 +752,7 @@ impl MemPoolITA {
             rqs_shift[0],
             rqs_add[0],
         );
-        // debug!("q_p_requant: {}", q_p_requant);
+        debug!("[ITA, CPU {}] q_p_requant: {}", &cpu.hartid, q_p_requant);
 
         // key_projection_space_transformation
         // key_projection_space_transformation(&mut k_p, &mut k, &mut w_k, &mut b_k, 1);
@@ -597,7 +761,7 @@ impl MemPoolITA {
         // debug!("b_k: {}", b_k);
         MemPoolITA::projection_space_transformation(&mut k_p, &mut k, &mut w_k, &mut b_k, 1);
         // requantization of k_p
-        let mut k_p_requant = Array3::<i8>::zeros((1, 64, 64));
+        let mut k_p_requant = Array3::<i8>::zeros((1, seq_len as usize, proj_len as usize));
         MemPoolITA::requantization_3d(
             &mut k_p,
             &mut k_p_requant,
@@ -605,10 +769,10 @@ impl MemPoolITA {
             rqs_shift[1],
             rqs_add[1],
         );
-        // debug!("k_p_requant: {}", k_p_requant);
+        debug!("[ITA, CPU {}] k_p_requant: {}", &cpu.hartid, k_p_requant);
 
         // query_key_correlation
-        let mut qk = Array3::<i32>::zeros((1, 64, 64));
+        let mut qk = Array3::<i32>::zeros((1, seq_len as usize, seq_len as usize));
         MemPoolITA::query_key_correlation(&mut q_p_requant, &mut k_p_requant, &mut qk);
         // requantization of qk
         MemPoolITA::requantization_3d(
@@ -618,16 +782,21 @@ impl MemPoolITA {
             rqs_shift[2],
             rqs_add[2],
         );
-        // debug!("a_requant: {}", a_requant);
+        debug!("[ITA, CPU {}] a_requant: {}", &cpu.hartid, a_requant);
 
         // streaming_partial_softmax
-        MemPoolITA::streaming_partial_softmax(&mut a_requant, &mut a_partial_softmax, 64);
+        MemPoolITA::streaming_partial_softmax(
+            &mut a_requant,
+            &mut a_partial_softmax,
+            seq_len,
+            processing_engines,
+        );
 
         // value_projection_space_transformation
         // value_projection_space_transformation(&mut v_p, &mut v, &mut w_v, &mut b_v, 1);
         MemPoolITA::projection_space_transformation(&mut v_p, &mut v, &mut w_v, &mut b_v, 1);
         // requantization of v_p
-        let mut v_p_requant = Array3::<i8>::zeros((1, 64, 64));
+        let mut v_p_requant = Array3::<i8>::zeros((1, seq_len as usize, proj_len as usize));
         MemPoolITA::requantization_3d(
             &mut v_p,
             &mut v_p_requant,
@@ -635,17 +804,17 @@ impl MemPoolITA {
             rqs_shift[3],
             rqs_add[3],
         );
-        // debug!("v_p_requant: {}", v_p_requant);
+        debug!("[ITA, CPU {}] v_p_requant: {}", &cpu.hartid, v_p_requant);
 
         // single_head_computation
-        let mut o_softmax = Array3::<i32>::zeros((1, 64, 64));
+        let mut o_softmax = Array3::<i32>::zeros((1, seq_len as usize, proj_len as usize));
         MemPoolITA::single_head_computation(
             &mut a_partial_softmax,
             &mut v_p_requant,
             &mut o_softmax,
         );
         // requantization of o_softmax
-        let mut o_softmax_requant = Array3::<i8>::zeros((1, 64, 64));
+        let mut o_softmax_requant = Array3::<i8>::zeros((1, seq_len as usize, proj_len as usize));
         MemPoolITA::requantization_3d(
             &mut o_softmax,
             &mut o_softmax_requant,
@@ -653,12 +822,16 @@ impl MemPoolITA {
             rqs_shift[4],
             rqs_add[4],
         );
-        // debug!("o_softmax_requant: {}", o_softmax_requant);
+        debug!(
+            "[ITA, CPU {}] o_softmax_requant: {}",
+            &cpu.hartid, o_softmax_requant
+        );
 
         // multi_head_computation
+
         MemPoolITA::multi_head_computation(&mut o_softmax_requant, &mut out, &mut w_o, &mut b_o, 1);
         // parallel requantization of out
-        let mut out_requant = Array2::<i8>::zeros((64, 64));
+        let mut out_requant = Array2::<i8>::zeros((seq_len as usize, emb_len as usize));
         MemPoolITA::parallel_requantize3d(
             &mut out,
             &mut out_requant,
@@ -666,18 +839,28 @@ impl MemPoolITA {
             rqs_shift[5],
             rqs_add[5],
         );
-        // debug!("out_requant: {}", out_requant);
+        debug!("[ITA, CPU {}] out_requant: {}", &cpu.hartid, out_requant);
 
-        // for j in 0..out_requant.shape()[1] {
-        //     let row = out_requant.slice(s![j, ..]);
-        //     debug!("out[{},:]:\n{}", j, row);
+        // for j in 0..a_requant.shape()[1] {
+        //     let row = a_requant.slice(s![00,j, ..]);
+        //     debug!("[ITA, CPU {}] a_requant[{},:]:\n{}",  &cpu.hartid, j, row);
+        // }
+
+        // for j in 0..a_partial_softmax.shape()[1] {
+        //     let row = a_partial_softmax.slice(s![j, ..]);
+        //     debug!("[ITA, CPU {}] a_partial_softmax[{},:]:\n{}",  &cpu.hartid, j, row);
+        // }
+
+        // for j in 0..o_softmax_requant.shape()[1] {
+        //     let row = o_softmax_requant.slice(s![00,j, ..]);
+        //     debug!("[ITA, CPU {}] o_softmax_requant[{},:]:\n{}",  &cpu.hartid, j, row);
         // }
 
         // Store the output
-        MemPoolITA::ita_store_2d(cpu, &out_requant, out_address, 64, 64, 1);
+        MemPoolITA::ita_store_2d(cpu, &out_requant, out_address, seq_len, emb_len, 1);
     }
 
-    fn requantize_row(element: i32, eps_mult: u8, right_shift: u8, add: i8) -> i8 {
+    fn requantize_row(element: i32, eps_mult: u8, right_shift: u8, add: i32) -> i8 {
         let mut shifted = ((element * (eps_mult as i32)) >> (right_shift as i32)) + (add as i32);
 
         // Perform rounding half away from zero
@@ -700,7 +883,7 @@ impl MemPoolITA {
         m_requant: &mut Array3<i8>,
         eps_mult: u8,
         right_shift: u8,
-        add: i8,
+        add: i32,
     ) {
         // debug!("===================== 3D Requantization =====================");
 
@@ -724,10 +907,10 @@ impl MemPoolITA {
         m_requant: &mut Array2<i8>,
         eps_mult: u8,
         right_shift: u8,
-        add: i8,
+        add: i32,
     ) {
         // debug!("===================== Parallel 3D Requantization =====================");
-        m_requant.fill(add);
+        m_requant.fill(add as i8);
         for i in 0..m.shape()[0] {
             for j in 0..m.shape()[1] {
                 let row = m.slice(s![i, j, ..]);
@@ -752,34 +935,35 @@ impl MemPoolITA {
         p: &mut Array3<i32>,
         m: &mut Array2<i8>,
         w: &mut Array3<i8>,
-        b: &mut Array3<i8>,
+        b: &mut Array2<i32>,
         bias: u8,
     ) {
-        // debug!("===================== Projection Space Transformation =====================");
-        if bias == 1 {
-            for i in 0..p.shape()[0] {
-                for j in 0..p.shape()[1] {
-                    for k in 0..p.shape()[2] {
-                        p[[i, j, k]] = b[[i, j, k]] as i32;
-                        for l in 0..m.shape()[1] {
-                            p[[i, j, k]] += m[[j, l]] as i32 * w[[i, l, k]] as i32;
-                        }
-                    }
-                }
-            }
-        } else {
-            for i in 0..p.shape()[0] {
-                for j in 0..p.shape()[1] {
-                    for k in 0..p.shape()[2] {
-                        p[[i, j, k]] = 0;
-                        for l in 0..m.shape()[1] {
-                            p[[i, j, k]] += m[[j, l]] as i32 * w[[i, l, k]] as i32;
-                        }
-                    }
-                }
-            }
-        }
+        info!("===================== Projection Space Transformation =====================");
+        info!("p shape: {:?}", p.shape());
+        info!("m shape: {:?}", m.shape());
+        info!("w: {:?}", w.shape());
+        info!("b: {:?}", b.shape());
 
+        // Calculate p[h] = m * W[h] + b[h] for each head h
+
+        let d1 = m.shape();
+        let d2 = w.shape();
+
+        assert_eq!(d1[1], d2[1], "Matrices dimensions don't match");
+
+        for i in 0..p.shape()[0] {
+            let slice_a = m.map(|x| *x as i32);
+            let slice_b = w.slice(s![i, .., ..]).map(|x| *x as i32);
+            let slice_c = b.slice(s![i, ..]).map(|x| *x);
+            let slice_c = slice_c.broadcast((d1[0], d2[2])).unwrap().map(|x| *x);
+            let mut mult_a_b = slice_a.dot(&slice_b);
+
+            if bias == 1 {
+                mult_a_b = mult_a_b + slice_c;
+            }
+
+            p.slice_mut(s![i, .., ..]).assign(&mult_a_b);
+        }
         // debug!("projected matrix: {:?}", p);
     }
 
@@ -788,22 +972,27 @@ impl MemPoolITA {
         kp_requant: &mut Array3<i8>,
         qk: &mut Array3<i32>,
     ) {
-        // debug!("===================== Query Key Correlation =====================");
+        info!("===================== Query Key Correlation =====================");
+        info!("qp_requant shape: {:?}", qp_requant.shape());
+        info!("kp_requant shape: {:?}", kp_requant.shape());
+        info!("qk shape: {:?}", qk.shape());
 
-        // Loop over the number of heads
+        let d1 = qp_requant.shape();
+        let d2 = kp_requant.shape();
+
+        assert_eq!(d1[2], d2[2], "Matrices dimensions don't match");
+
+        // Calculate qk[h] = qp_requant[h] * kp_requant[h].T for each head h
+        let kp_requant_transposed = MemPoolITA::transpose_2d_arrays(kp_requant);
+
         for i in 0..qk.shape()[0] {
-            // Loop over the number of queries
-            for j in 0..qk.shape()[1] {
-                // Loop over the number of keys
-                for k in 0..qk.shape()[2] {
-                    qk[[i, j, k]] = 0;
-                    // Loop over the number of features
-                    for l in 0..qk.shape()[1] {
-                        qk[[i, j, k]] += qp_requant[[i, j, l as usize]] as i32
-                            * kp_requant[[i, k, l as usize]] as i32;
-                    }
-                }
-            }
+            let slice_a = qp_requant.slice(s![i, .., ..]).map(|x| *x as i32);
+            let slice_b = kp_requant_transposed
+                .slice(s![i, .., ..])
+                .map(|x| *x as i32);
+            let mult_a_b = slice_a.dot(&slice_b);
+
+            qk.slice_mut(s![i, .., ..]).assign(&mult_a_b);
         }
 
         // debug!("qk: {:?}", qk);
@@ -813,7 +1002,8 @@ impl MemPoolITA {
     fn streaming_partial_softmax(
         a_requant: &mut Array3<i8>,
         a_partial_softmax: &mut Array2<i32>,
-        seq_len: i32,
+        seq_len: u32,
+        processing_engines: u32,
     ) {
         // debug!("===================== Streaming Partial SoftMax =====================");
 
@@ -821,30 +1011,32 @@ impl MemPoolITA {
         // let b = 8;
         // let eps_x = b as f64 / (2.0f64.powi(b) * log2e);
         let mut exp_partial_sum = Array1::<i32>::zeros(seq_len as usize);
-        let mut max = Array1::<i8>::zeros(64);
-        let mut current_max = Array1::<i8>::zeros(64);
+        let mut max = Array1::<i8>::zeros(seq_len as usize);
+        let mut current_max = Array1::<i8>::zeros(seq_len as usize);
+        let _processing_engines = processing_engines as usize;
+        let groups = seq_len as usize / _processing_engines;
 
-        for i in 0..4 {
-            let a_requant_slice = a_requant.slice_mut(s![0, .., i * 16..(i + 1) * 16]);
+        for i in 0..groups {
+            let a_requant_slice = a_requant.slice_mut(s![
+                0,
+                ..,
+                i * _processing_engines..(i + 1) * _processing_engines
+            ]);
 
             for n in 0..a_requant_slice.nrows() {
                 current_max[[n]] = a_requant_slice.row(n).iter().copied().max().unwrap() as i8;
             }
 
             for j in 0..seq_len {
-                let mut shift_sum;
+                let mut shift_sum: u8;
                 if i == 0 || current_max[j as usize] > max[[j as usize]] {
                     if i == 0 {
                         shift_sum = 0;
                     } else {
-                        shift_sum = (current_max[j as usize] - max[[j as usize]]) / 32;
-                        // if (((current_max[j as usize] - max[[j as usize]]) / 32) - shift_sum) as f64
-                        //     >= 0.5
-                        // {
-                        //     shift_sum += 1;
-                        // }
                         let shift_int =
                             (current_max[j as usize] as i32) - (max[[j as usize]] as i32);
+                        shift_sum = (shift_int / 32) as u8;
+
                         if shift_int % 32 >= 16 {
                             shift_sum += 1;
                         }
@@ -855,7 +1047,11 @@ impl MemPoolITA {
                 }
 
                 let qb = a_requant
-                    .slice_mut(s![0, .., i * 16..(i + 1) * 16])
+                    .slice_mut(s![
+                        0,
+                        ..,
+                        i * _processing_engines..(i + 1) * _processing_engines
+                    ])
                     .mapv(|x| x as i32 - max[[j as usize]] as i32);
 
                 let mut qexp = 0;
@@ -876,7 +1072,7 @@ impl MemPoolITA {
         }
         for j in 0..seq_len {
             let factor =
-                ((2.0f64.powi(8) - 1.0) * 2.0f64.powi(10)) as i32 / exp_partial_sum[j as usize];
+                ((2.0f64.powi(7) - 1.0) * 2.0f64.powi(10)) as i32 / exp_partial_sum[j as usize];
             for k in 0..seq_len {
                 let mut shift = (((max[j as usize] as i32)
                     - (a_requant[[0, j as usize, k as usize]] as i32))
@@ -924,35 +1120,33 @@ impl MemPoolITA {
         o_softmax_requant: &mut Array3<i8>,
         out: &mut Array3<i32>,
         w_o: &mut Array3<i8>,
-        b_o: &mut Array3<i8>,
+        b_o: &mut Array2<i32>,
         bias: u8,
     ) {
-        // debug!("===================== Multi Head Computation =====================");
+        info!("===================== Multi Head Computation =====================");
+        info!("o_softmax_requant shape: {:?}", o_softmax_requant.shape());
+        info!("out shape: {:?}", out.shape());
+        info!("w_o shape: {:?}", w_o.shape());
+        info!("b_o shape: {:?}", b_o.shape());
 
-        if bias == 1 {
-            for i in 0..out.shape()[0] {
-                for j in 0..out.shape()[1] {
-                    for k in 0..out.shape()[2] {
-                        out[[i, j, k]] = b_o[[i, j, k]] as i32;
-                        for l in 0..out.shape()[1] {
-                            out[[i, j, k]] +=
-                                o_softmax_requant[[i, j, l]] as i32 * w_o[[i, l, k]] as i32;
-                        }
-                    }
-                }
+        let d1 = o_softmax_requant.shape();
+        let d2 = w_o.shape();
+
+        assert_eq!(d1[2], d2[1], "Matrices dimensions don't match");
+
+        // Calculate out[h] = o_softmax_requant[h] * W_o[h] + b_o[h] for each head h
+        for i in 0..out.shape()[0] {
+            let slice_a = o_softmax_requant.slice(s![i, .., ..]).map(|x| *x as i32);
+            let slice_b = w_o.slice(s![i, .., ..]).map(|x| *x as i32);
+            let slice_c = b_o.slice(s![i, ..]).map(|x| *x);
+            let slice_c = slice_c.broadcast((d1[0], d2[2])).unwrap().map(|x| *x);
+            let mut mult_a_b = slice_a.dot(&slice_b);
+
+            if bias == 1 {
+                mult_a_b = mult_a_b + slice_c;
             }
-        } else {
-            for i in 0..out.shape()[0] {
-                for j in 0..out.shape()[1] {
-                    for k in 0..out.shape()[2] {
-                        out[[i, j, k]] = 0;
-                        for l in 0..out.shape()[1] {
-                            out[[i, j, k]] +=
-                                o_softmax_requant[[i, j, l]] as i32 * w_o[[i, l, k]] as i32;
-                        }
-                    }
-                }
-            }
+
+            out.slice_mut(s![i, .., ..]).assign(&mult_a_b);
         }
 
         // debug!("out: {:?}", out);
