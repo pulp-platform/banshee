@@ -37,7 +37,11 @@ memory:
     latency: 5
     callbacks:
       - name: zero-memory
-        size: 0x10000
+        size: 0x40
+      - name: mempool-ita
+        size: 0xC0
+      - name: zero-memory
+        size: 0xFF00
       - name: mempool-dma
         size: 0x1C
 inst_latency:
