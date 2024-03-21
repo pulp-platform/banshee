@@ -17,6 +17,9 @@ If you already have Rust installed, get the specific version of the Rust with:
 ```bash
 # Install the correct Rust version
 rustup install 1.63.0
+
+# Change default toolchain version
+rustup default 1.63.0
 ```
 
 To get LLVM on Ubuntu, install the following packages:
@@ -68,6 +71,10 @@ set -x CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER /usr/pack/gcc-9.2.0-af/linux
 </details>
 
 ## Installation
+Make sure to fetch all required submodules.
+```sh
+git submodule update --init --recursive
+```
 
 Banshee can be installed on your system using cargo as follows:
 
