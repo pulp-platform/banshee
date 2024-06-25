@@ -774,7 +774,11 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 let ptr: *const u32 = self.tcdm_ptr[id];
                 let word = unsafe { *ptr.offset(word_addr as isize) };
                 let val = (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32);
-                debug!("TCDM Load: addr: 0x{:x} value: 0x{:x}", x, (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32));
+                debug!(
+                    "TCDM Load: addr: 0x{:x} value: 0x{:x}",
+                    x,
+                    (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
+                );
                 val
             }
             // Peripherals
@@ -841,7 +845,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         "Hart {} (pc=0x{:08x}) is reading outside the memory map at 0x{:08x}",
                         self.hartid, self.state.pc, addr
                     );
-                }                
+                }
                 let word_offset = addr % 4;
                 let mask = (!(u64::MAX << (8 << size))) as u32;
                 if (size as u32) > (4 - word_offset) {
@@ -850,10 +854,26 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         self.hartid, self.state.pc, addr
                     );
                 }
-                let shift = (8 * (word_offset)); 
-                let word = ((self.engine.memory.lock().unwrap().get(&((addr - word_offset) as u64)).copied().unwrap_or(0)) >> shift) & mask;
-                debug!("DRAM Load: addr 0x{:x} value 0x{:x} shift {} mask 0x{:x} ({}B)", addr, word, shift, mask, 8 << size);
-                (word as u32)
+                let shift = 8 * (word_offset);
+                let word = ((self
+                    .engine
+                    .memory
+                    .lock()
+                    .unwrap()
+                    .get(&((addr - word_offset) as u64))
+                    .copied()
+                    .unwrap_or(0))
+                    >> shift)
+                    & mask;
+                debug!(
+                    "DRAM Load: addr 0x{:x} value 0x{:x} shift {} mask 0x{:x} ({}B)",
+                    addr,
+                    word,
+                    shift,
+                    mask,
+                    8 << size
+                );
+                word as u32
             }
         }
     }
@@ -1025,7 +1045,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     mask,
                     8 << size
                 );
-                let offset_addr = addr - word_offset; 
+                let offset_addr = addr - word_offset;
                 let mut data = self.engine.memory.lock().unwrap();
                 let data = data.entry(offset_addr as u64).or_default();
                 let shifted_value = value << 8 * (addr % 4);
