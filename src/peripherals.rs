@@ -535,7 +535,7 @@ impl MemPoolITA {
                             data[[j as usize, ((n / splits) * split + i) as usize + offset]] as u8;
                     }
                     let word = u32::from_ne_bytes(elements);
-                    cpu.binary_store(address + address_offset, word, u32::MAX, 2);
+                    cpu.binary_store(address + address_offset, word, 2);
                     debug!(
                         "[ITA, CPU {}] Store OUT to 0x{:x}",
                         &cpu.hartid,
