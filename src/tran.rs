@@ -6460,7 +6460,7 @@ impl<'a> InstructionTranslator<'a> {
             [
                 self.section.state_ptr,
                 aligned_addr,
-                LLVMConstInt(LLVMInt8Type(), 2 as u64, 0),
+                LLVMConstInt(LLVMInt8Type(), 2 as u64, 0), // JUNGVI: Set size to 2 in this case as we align the read after the phi block.
             ]
             .as_mut_ptr(),
             3,

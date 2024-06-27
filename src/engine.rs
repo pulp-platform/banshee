@@ -714,6 +714,12 @@ impl<'a, 'b> Cpu<'a, 'b> {
     }
 
     pub fn binary_load(&self, addr: u32, size: u8) -> u32 {
+        if ((1 << size) as u32) > (4 - (addr % 4)) {
+            warn!(
+                "Hart {} (pc=0x{:08x}) is doing an unaligned load at 0x{:08x}",
+                self.hartid, self.state.pc, addr
+            );
+        }
         match addr {
             x if x == self.engine.config.address.tcdm_start => {
                 self.engine.config.memory.tcdm.start
@@ -774,7 +780,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 let ptr: *const u32 = self.tcdm_ptr[id];
                 let word = unsafe { *ptr.offset(word_addr as isize) };
                 let val = (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32);
-                debug!(
+                trace!(
                     "TCDM Load: addr: 0x{:x} value: 0x{:x}",
                     x,
                     (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
@@ -848,12 +854,6 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 }
                 let word_offset = addr % 4;
                 let mask = (!(u64::MAX << (8 << size))) as u32;
-                if (size as u32) > (4 - word_offset) {
-                    warn!(
-                        "Hart {} (pc=0x{:08x}) is doing an unaligned load in DRAM at 0x{:08x}",
-                        self.hartid, self.state.pc, addr
-                    );
-                }
                 let shift = 8 * (word_offset);
                 let word = ((self
                     .engine
@@ -899,7 +899,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
             x if x == self.engine.config.address.uart => {
                 let mut buffer = self.engine.putchar_buffer.lock().unwrap();
                 let buffer = buffer.entry(self.hartid).or_default();
-                debug!("UART Store: addr 0x{:x} value 0x{:x}", addr, value);
+                trace!("UART Store: addr 0x{:x} value 0x{:x}", addr, value);
                 if value == '\n' as u32 {
                     eprintln!(
                         "{}{} hart-{:03} {} {}",
@@ -1038,7 +1038,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         self.hartid, self.state.pc, addr
                     );
                 }
-                debug!(
+                trace!(
                     "DRAM Store: addr 0x{:x} value 0x{:x} mask 0x{:x} ({}B)",
                     addr,
                     value,
