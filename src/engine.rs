@@ -881,7 +881,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
     pub fn binary_store(&self, addr: u32, value: u32, size: u8) {
         if ((addr % 4) % (1 << size) == 0) {
             warn!(
-                "Hart {} (pc=0x{:08x}) is doing an unaligned load at 0x{:08x}",
+                "Hart {} (pc=0x{:08x}) is doing an unaligned store at 0x{:08x}",
                 self.hartid, self.state.pc, addr
             );
         }
