@@ -1149,7 +1149,7 @@ impl<'a> InstructionTranslator<'a> {
             [
                 self.section.state_ptr,
                 addr,
-                LLVMConstInt(LLVMInt8Type(), 4 as u64, 0),
+                LLVMConstInt(LLVMInt8Type(), 2 as u64, 0),
             ]
             .as_mut_ptr(),
             3,
@@ -6459,14 +6459,8 @@ impl<'a> InstructionTranslator<'a> {
             ),
             [
                 self.section.state_ptr,
-                // LLVMBuildBitCast(
-                //     self.builder,
-                //     self.section.state_ptr,
-                //     LLVMPointerType(LLVMInt8Type(), 0),
-                //     NONAME,
-                // ),
                 aligned_addr,
-                LLVMConstInt(LLVMInt8Type(), size as u64, 0),
+                LLVMConstInt(LLVMInt8Type(), 2 as u64, 0), // JUNGVI: Set size to 2 in this case as we align the read after the phi block.
             ]
             .as_mut_ptr(),
             3,
@@ -6563,27 +6557,6 @@ impl<'a> InstructionTranslator<'a> {
             NONAME,
         );
 
-        // Compute the misalignment.
-        let shift = LLVMBuildAnd(
-            self.builder,
-            addr,
-            LLVMConstInt(LLVMInt32Type(), 3, 0),
-            NONAME,
-        );
-        let shift = LLVMBuildMul(
-            self.builder,
-            shift,
-            LLVMConstInt(LLVMInt32Type(), 8, 0),
-            NONAME,
-        );
-
-        // Align the data to the address and generate a bit mask.
-        let mask = LLVMConstNull(ty);
-        let mask = LLVMBuildNot(self.builder, mask, NONAME);
-        let mask = LLVMBuildZExt(self.builder, mask, LLVMInt32Type(), NONAME);
-        let mask = LLVMBuildShl(self.builder, mask, shift, NONAME);
-        let value = LLVMBuildShl(self.builder, value, shift, NONAME);
-
         // Check if the address is in the SSR configuration space.
         let (is_ssr, ssr_ptr, ssr_addr) = self.emit_ssr_check(aligned_addr);
         let bb_ssr = LLVMCreateBasicBlockInContext(self.section.engine.context, NONAME);
@@ -6596,7 +6569,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMPositionBuilderAtEnd(self.builder, bb_ssr);
         self.section.emit_call(
             "banshee_ssr_write_cfg",
-            [ssr_ptr, self.section.state_ptr, ssr_addr, value, mask],
+            [ssr_ptr, self.section.state_ptr, ssr_addr, value],
         );
         LLVMBuildBr(self.builder, bb_end);
         LLVMPositionBuilderAtEnd(self.builder, bb_nossr);
@@ -6606,9 +6579,8 @@ impl<'a> InstructionTranslator<'a> {
             "banshee_store",
             [
                 self.section.state_ptr,
-                aligned_addr,
+                addr,
                 value,
-                mask,
                 LLVMConstInt(LLVMInt8Type(), size as u64, 0),
             ],
         );

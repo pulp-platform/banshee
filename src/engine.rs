@@ -714,6 +714,12 @@ impl<'a, 'b> Cpu<'a, 'b> {
     }
 
     pub fn binary_load(&self, addr: u32, size: u8) -> u32 {
+        if (addr % 4) % (1 << size) == 0 {
+            warn!(
+                "Hart {} (pc=0x{:08x}) is doing an unaligned load at 0x{:08x}",
+                self.hartid, self.state.pc, addr
+            );
+        }
         match addr {
             x if x == self.engine.config.address.tcdm_start => {
                 self.engine.config.memory.tcdm.start
@@ -756,8 +762,6 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         + self.engine.config.memory.tcdm.size)
             }) =>
             {
-                trace!("TCDM Binary Load");
-                trace!("Binary load address: 0x{:x}", x);
                 let id = (0..self.engine.num_clusters)
                     .position(|i| {
                         addr >= (self.engine.config.memory.tcdm.start
@@ -775,7 +779,13 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 let word_offs = tcdm_addr - 4 * word_addr;
                 let ptr: *const u32 = self.tcdm_ptr[id];
                 let word = unsafe { *ptr.offset(word_addr as isize) };
-                (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
+                let val = (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32);
+                trace!(
+                    "TCDM Load: addr: 0x{:x} value: 0x{:x}",
+                    x,
+                    (word >> (8 * word_offs)) & ((((1 as u64) << (8 << size)) - 1) as u32)
+                );
+                val
             }
             // Peripherals
             x if (0..self.engine.num_clusters).any(|i| {
@@ -842,19 +852,41 @@ impl<'a, 'b> Cpu<'a, 'b> {
                         self.hartid, self.state.pc, addr
                     );
                 }
-                // trace!("Load 0x{:x} ({}B)", addr, 8 << size);
-                self.engine
+                let word_offset = addr % 4;
+                let mask = (!(u64::MAX << (8 << size))) as u32;
+                let shift = 8 * (word_offset);
+                let word = ((self
+                    .engine
                     .memory
                     .lock()
                     .unwrap()
-                    .get(&(addr as u64))
+                    .get(&((addr - word_offset) as u64))
                     .copied()
-                    .unwrap_or(0)
+                    .unwrap_or(0))
+                    >> shift)
+                    & mask;
+                trace!(
+                    "DRAM Load: addr 0x{:x} value 0x{:x} shift {} mask 0x{:x} ({}B)",
+                    addr,
+                    word,
+                    shift,
+                    mask,
+                    8 << size
+                );
+                word as u32
             }
         }
     }
 
-    pub fn binary_store(&self, addr: u32, value: u32, mask: u32, size: u8) {
+    pub fn binary_store(&self, addr: u32, value: u32, size: u8) {
+        if (addr % 4) % (1 << size) == 0 {
+            warn!(
+                "Hart {} (pc=0x{:08x}) is doing an unaligned store at 0x{:08x}",
+                self.hartid, self.state.pc, addr
+            );
+        }
+        let word_offset = addr % 4;
+        let mask = ((((1 as u64) << (8 << size)) - 1) << (8 * word_offset)) as u32;
         match addr {
             x if x == self.engine.config.address.tcdm_start => (), // tcdm_start
             x if x == self.engine.config.address.tcdm_end => (),   // tcdm_end
@@ -873,6 +905,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
             x if x == self.engine.config.address.uart => {
                 let mut buffer = self.engine.putchar_buffer.lock().unwrap();
                 let buffer = buffer.entry(self.hartid).or_default();
+                trace!("UART Store: addr 0x{:x} value 0x{:x}", addr, value);
                 if value == '\n' as u32 {
                     eprintln!(
                         "{}{} hart-{:03} {} {}",
@@ -917,11 +950,10 @@ impl<'a, 'b> Cpu<'a, 'b> {
                 let word_offs = tcdm_addr - 4 * word_addr;
                 let ptr = self.tcdm_ptr[id] as *const u32;
                 let ptr_mut = ptr as *mut u32;
-                let wmask = ((((1 as u64) << (8 << size)) - 1) as u32) << (8 * word_offs);
                 unsafe {
                     let word_ptr = ptr_mut.offset(word_addr as isize);
                     let word = *word_ptr;
-                    *word_ptr = (word & !wmask) | ((value << (8 * word_offs)) & wmask);
+                    *word_ptr = (word & !mask) | ((value << (8 * word_offs)) & mask);
                 }
             }
             // Peripherals
@@ -1013,16 +1045,18 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     );
                 }
                 trace!(
-                    "Store 0x{:x} = 0x{:x} if 0x{:x} ({}B)",
+                    "DRAM Store: addr 0x{:x} value 0x{:x} mask 0x{:x} ({}B)",
                     addr,
                     value,
                     mask,
                     8 << size
                 );
+                let offset_addr = addr - word_offset;
                 let mut data = self.engine.memory.lock().unwrap();
-                let data = data.entry(addr as u64).or_default();
+                let data = data.entry(offset_addr as u64).or_default();
+                let shifted_value = value << 8 * (addr % 4);
                 *data &= !mask;
-                *data |= value & mask;
+                *data |= shifted_value & mask;
             }
         }
     }
@@ -1062,14 +1096,14 @@ impl<'a, 'b> Cpu<'a, 'b> {
             // Aligned transfer
             for _ in 0..n / 4 {
                 let tmp = self.binary_load(src, 2);
-                self.binary_store(dest, tmp, u32::MAX, 2);
+                self.binary_store(dest, tmp, 2);
                 src += 4;
                 dest += 4;
             }
         } else {
             for _ in 0..n {
                 let tmp = self.binary_load(src, 0);
-                self.binary_store(dest, tmp, (u8::MAX as u32) << (8 * (dest % 4)), 0);
+                self.binary_store(dest, tmp, 0);
                 src += 1;
                 dest += 1;
             }

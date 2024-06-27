@@ -18,7 +18,7 @@
 
 ; Forward declarations.
 declare i32 @banshee_load(%Cpu* %cpu, i32 %addr, i8 %size)
-declare void @banshee_store(%Cpu* %cpu, i32 %addr, i32 %value, i32 %mask, i8 %size)
+declare void @banshee_store(%Cpu* %cpu, i32 %addr, i32 %value, i8 %size)
 declare i32 @banshee_rmw(%Cpu* %cpu, i32 %addr, i32 %value, i8 %op)
 declare i32 @banshee_csr_read(%Cpu* %cpu, i16 %csr, i32 %notrace)
 declare void @banshee_csr_write(%Cpu* %cpu, i16 %csr, i32 %value, i32 %notrace)
@@ -58,7 +58,7 @@ declare float @banshee_fp16_to_fp32_op(i16 %rs1, i16 %rs2, float %rs3, i8 %op, i
 declare i16 @banshee_fp8_to_fp16_op(i8 %rs1, i8 %rs2, i16 %rs3, i8 %op, i1 %fpmode_src, i1 %fpmode_dst)
 declare float @banshee_fp8_to_fp32_op(i8 %rs1, i8 %rs2, float %rs3, i8 %op, i1 %fpmode_src)
 
-declare void @banshee_ssr_write_cfg(%SsrState* %ssr,  %Cpu* %cpu, i32 %addr, i32 %value, i32 %mask)
+declare void @banshee_ssr_write_cfg(%SsrState* %ssr,  %Cpu* %cpu, i32 %addr, i32 %value)
 declare i32 @banshee_ssr_read_cfg(%SsrState* readonly %ssr, i32 %addr)
 declare i32 @banshee_ssr_next(%SsrState* %ssr, %Cpu* %cpu)
 declare void @banshee_ssr_eoi(%SsrState* %ssr)
