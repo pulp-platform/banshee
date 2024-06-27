@@ -865,7 +865,7 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     .unwrap_or(0))
                     >> shift)
                     & mask;
-                debug!(
+                trace!(
                     "DRAM Load: addr 0x{:x} value 0x{:x} shift {} mask 0x{:x} ({}B)",
                     addr,
                     word,
