@@ -8,7 +8,7 @@ Banshee is a binary-translation-based, instruction-accurate RISC-V simulator for
 
 ## Requirements
 
-Banshee currently requires Rust version 1.63.0 and LLVM 12.
+Banshee currently requires Rust version 1.67.0 and LLVM 12.
 
 To install Rust, visit [Rustup](https://rustup.rs/) and choose the correct version of Rust during the installation process.
 
@@ -16,10 +16,10 @@ If you already have Rust installed, get the specific version of the Rust with:
 
 ```bash
 # Install the correct Rust version
-rustup install 1.63.0
+rustup install 1.67.0
 
 # Change default toolchain version
-rustup default 1.63.0
+rustup default 1.67.0
 ```
 
 To get LLVM on Ubuntu, install the following packages:

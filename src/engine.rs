@@ -113,7 +113,7 @@ impl Engine {
                 );
 
                 // Parse the module.
-                let mut module = std::mem::MaybeUninit::uninit().assume_init();
+                let mut module = std::mem::MaybeUninit::zeroed().assume_init();
                 let mut errmsg = std::mem::MaybeUninit::zeroed().assume_init();
                 if LLVMParseIRInContext(self.context, initial_buf, &mut module, &mut errmsg) != 0
                     || !errmsg.is_null()
@@ -171,7 +171,7 @@ impl Engine {
                 );
 
                 // Parse the module.
-                let mut runtime = std::mem::MaybeUninit::uninit().assume_init();
+                let mut runtime = std::mem::MaybeUninit::zeroed().assume_init();
                 let mut errmsg = std::mem::MaybeUninit::zeroed().assume_init();
                 if LLVMParseIRInContext(self.context, runtime_buf, &mut runtime, &mut errmsg) != 0
                     || !errmsg.is_null()
@@ -337,7 +337,7 @@ impl Engine {
         debug!("Creating JIT compiler for translated code");
         let execs: Vec<_> = (0..self.num_clusters)
             .map(|i| {
-                let mut ee = std::mem::MaybeUninit::uninit().assume_init();
+                let mut ee = std::mem::MaybeUninit::zeroed().assume_init();
                 let mut errmsg = std::mem::MaybeUninit::zeroed().assume_init();
                 let optlevel = if self.opt_jit { 3 } else { 0 };
                 LLVMCreateJITCompilerForModule(&mut ee, self.modules[i], optlevel, &mut errmsg);
