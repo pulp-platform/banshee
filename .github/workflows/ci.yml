@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         rust:
-        - 1.63.0   # minimum supported version
+        - 1.67.0   # minimum supported version
     steps:
     - uses: actions/checkout@v3
       with:
