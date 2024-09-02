@@ -20,7 +20,7 @@ use std::{
 };
 extern crate flexfloat;
 
-static NONAME: &'static i8 = unsafe { std::mem::transmute("\0".as_ptr()) };
+static NONAME: &'static u8 = unsafe { std::mem::transmute("\0".as_ptr()) };
 
 /// Base address of the stream semantic regsiters
 static SSR_BASE: u64 = 0x204800;

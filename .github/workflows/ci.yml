@@ -10,7 +10,7 @@ jobs:
   # Build and Test #
   ##################
   Banshee:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       matrix:
@@ -24,7 +24,7 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
     - name: Install LLVM
-      run: sudo apt install llvm-12-dev libclang-common-12-dev
+      run: sudo apt install llvm-15-dev libclang-common-15-dev
     - name: Build Banshee
       run: cargo build
     - name: Run Banshee tests
