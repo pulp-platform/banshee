@@ -723,9 +723,19 @@ impl<'a> SectionTranslator<'a> {
                 LLVMPositionBuilderAtEnd(self.builder, bb_incr_branch);
 
                 // Load repetition counter from stack.
-                let rpt_cnt = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.fseq_iter.rpt_ptr_ref, NONAME);
+                let rpt_cnt = LLVMBuildLoad2(
+                    self.builder,
+                    LLVMInt32Type(),
+                    self.fseq_iter.rpt_ptr_ref,
+                    NONAME,
+                );
                 // Load max repetition from stack.
-                let max_rpt = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.fseq_iter.max_rpt_ref, NONAME);
+                let max_rpt = LLVMBuildLoad2(
+                    self.builder,
+                    LLVMInt32Type(),
+                    self.fseq_iter.max_rpt_ref,
+                    NONAME,
+                );
                 // Compare to repetition maximum: repeat if less than maximum iteration.
                 let rpt_cmp = LLVMBuildICmp(self.builder, LLVMIntULT, rpt_cnt, max_rpt, NONAME);
                 // Increment rep counter, store
@@ -813,9 +823,19 @@ impl<'a> SectionTranslator<'a> {
             LLVMPositionBuilderAtEnd(self.builder, bb_incr_branch);
 
             // Load repetition counter from stack.
-            let rpt_cnt = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.fseq_iter.rpt_ptr_ref, NONAME);
+            let rpt_cnt = LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                self.fseq_iter.rpt_ptr_ref,
+                NONAME,
+            );
             // Load max repetition from stack.
-            let max_rpt = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.fseq_iter.max_rpt_ref, NONAME);
+            let max_rpt = LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                self.fseq_iter.max_rpt_ref,
+                NONAME,
+            );
             // Compare to repetition maximum: repeat if less than maximum iteration.
             let rpt_cmp = LLVMBuildICmp(self.builder, LLVMIntULT, rpt_cnt, max_rpt, NONAME);
             // Increment rep counter, store
@@ -1120,7 +1140,12 @@ impl<'a> InstructionTranslator<'a> {
 
         // Emit the TCDM fast case.
         LLVMPositionBuilderAtEnd(self.builder, bb_yes);
-        values.push(LLVMBuildLoad2(self.builder, LLVMInt32Type(), tcdm_ptr, NONAME));
+        values.push(LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            tcdm_ptr,
+            NONAME,
+        ));
         LLVMBuildBr(self.builder, bb_end);
         bbs.push(LLVMGetInsertBlock(self.builder));
 
@@ -1135,7 +1160,12 @@ impl<'a> InstructionTranslator<'a> {
 
             // Emit the external TCDM fast case.
             LLVMPositionBuilderAtEnd(self.builder, bb_yes);
-            values.push(LLVMBuildLoad2(self.builder, LLVMInt32Type(), tcdm_ptr, NONAME));
+            values.push(LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                tcdm_ptr,
+                NONAME,
+            ));
             LLVMBuildBr(self.builder, bb_end);
             bbs.push(LLVMGetInsertBlock(self.builder));
         }
@@ -1833,7 +1863,12 @@ impl<'a> InstructionTranslator<'a> {
 
     unsafe fn emit_fsd(&self, rs: u32, addr: LLVMValueRef) {
         let ptr = self.freg_ptr(rs);
-        let rs = LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _);
+        let rs = LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        );
         let rs_lo = LLVMBuildTrunc(self.builder, rs, LLVMInt32Type(), NONAME);
         let rs_hi = LLVMBuildLShr(
             self.builder,
@@ -5734,7 +5769,14 @@ impl<'a> InstructionTranslator<'a> {
             [LLVMTypeOf(rs1)].as_mut_ptr(),
             1,
         );
-        LLVMBuildCall2(self.builder, LLVMInt32Type(), decl, [rs1, rs2].as_mut_ptr(), 2, NONAME)
+        LLVMBuildCall2(
+            self.builder,
+            LLVMInt32Type(),
+            decl,
+            [rs1, rs2].as_mut_ptr(),
+            2,
+            NONAME,
+        )
     }
 
     unsafe fn emit_rd_rs1_shamt(&self, data: riscv::FormatRdRs1Shamt) -> Result<()> {
@@ -5964,7 +6006,8 @@ impl<'a> InstructionTranslator<'a> {
         self.write_csr_silent(riscv::Csr::Mip as u32, mip);
 
         // Update irq_sample_ctr
-        let irq_sample_ctr = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.irq_sample_ptr(), NONAME);
+        let irq_sample_ctr =
+            LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.irq_sample_ptr(), NONAME);
         let irq_sample_ctr = LLVMBuildAdd(
             self.builder,
             irq_sample_ctr,
@@ -6198,7 +6241,8 @@ impl<'a> InstructionTranslator<'a> {
             }
 
             // Load the current cycle counter.
-            let mut max_cycle = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.cycle_ptr(), NONAME);
+            let mut max_cycle =
+                LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.cycle_ptr(), NONAME);
             // Instruction takes at least one cycle even if all dependencies are ready
             max_cycle = LLVMBuildAdd(
                 self.builder,
@@ -6416,7 +6460,12 @@ impl<'a> InstructionTranslator<'a> {
 
         // Emit the TCDM fast case.
         LLVMPositionBuilderAtEnd(self.builder, bb_yes);
-        values.push(LLVMBuildLoad2(self.builder, LLVMInt32Type(), tcdm_ptr, NONAME));
+        values.push(LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            tcdm_ptr,
+            NONAME,
+        ));
         LLVMBuildBr(self.builder, bb_end);
         bbs.push(LLVMGetInsertBlock(self.builder));
 
@@ -6432,7 +6481,12 @@ impl<'a> InstructionTranslator<'a> {
 
             // Emit the external TCDM fast case.
             LLVMPositionBuilderAtEnd(self.builder, bb_yes);
-            values.push(LLVMBuildLoad2(self.builder, LLVMInt32Type(), tcdm_ptr, NONAME));
+            values.push(LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                tcdm_ptr,
+                NONAME,
+            ));
             LLVMBuildBr(self.builder, bb_end);
             bbs.push(LLVMGetInsertBlock(self.builder));
         }
@@ -6688,7 +6742,12 @@ impl<'a> InstructionTranslator<'a> {
             LLVMConstInt(LLVMInt32Type(), 0, 0)
         } else {
             let ptr = self.reg_ptr(rs);
-            let data = LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("x{}\0", rs).as_ptr() as *const _);
+            let data = LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                ptr,
+                format!("x{}\0", rs).as_ptr() as *const _,
+            );
             self.trace_access(TraceAccess::ReadReg(rs as u8), data);
             data
         }
@@ -6707,7 +6766,12 @@ impl<'a> InstructionTranslator<'a> {
     unsafe fn read_freg(&self, rs: u32) -> LLVMValueRef {
         self.emit_possible_ssr_read(rs);
         let ptr = self.freg_ptr(rs);
-        let data = LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _);
+        let data = LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        );
         self.trace_access(TraceAccess::ReadFReg(rs as u8), data);
         data
     }
@@ -6743,7 +6807,12 @@ impl<'a> InstructionTranslator<'a> {
                 NONAME,
             )
         };
-        LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _)
+        LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        )
     }
 
     unsafe fn read_freg_vf64b(
@@ -7083,7 +7152,12 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _)
+        LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        )
     }
 
     /// Emit the code to read a f16 value from a float register.
@@ -7100,7 +7174,12 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _)
+        LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        )
     }
 
     /// Emit the code to read a f32 value from a float register.
