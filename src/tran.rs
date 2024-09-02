@@ -7147,7 +7147,12 @@ impl<'a> InstructionTranslator<'a> {
                 ptr_hi,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _),
+            LLVMBuildLoad2(
+                self.builder,
+                LLVMInt32Type(),
+                ptr,
+                format!("f{}\0", rs).as_ptr() as *const _,
+            ),
         )
     }
 
@@ -7218,7 +7223,12 @@ impl<'a> InstructionTranslator<'a> {
                 NONAME,
             )
         };
-        LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _)
+        LLVMBuildLoad2(
+            self.builder,
+            LLVMInt32Type(),
+            ptr,
+            format!("f{}\0", rs).as_ptr() as *const _,
+        )
     }
 
     /// Emit the code to write a f64 value to a float register.
