@@ -1005,7 +1005,7 @@ impl<'a> InstructionTranslator<'a> {
         }
 
         // Update the instret counter.
-        let instret = LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.instret_ptr(), NONAME);
+        let instret = LLVMBuildLoad2(self.builder, LLVMInt64Type(), self.instret_ptr(), NONAME);
         let instret = LLVMBuildAdd(
             self.builder,
             instret,
@@ -1865,7 +1865,7 @@ impl<'a> InstructionTranslator<'a> {
         let ptr = self.freg_ptr(rs);
         let rs = LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            LLVMInt64Type(),
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         );
@@ -3330,7 +3330,7 @@ impl<'a> InstructionTranslator<'a> {
                 LLVMBuildStore(self.builder, rs1, ptr);
                 self.trace_access(
                     TraceAccess::WriteF32Reg(data.rd as u8),
-                    LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+                    LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
                 );
                 return Ok(());
             }
@@ -3376,7 +3376,7 @@ impl<'a> InstructionTranslator<'a> {
                 LLVMBuildStore(self.builder, rs1, ptr);
                 self.trace_access(
                     TraceAccess::WriteFReg(data.rd as u8),
-                    LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+                    LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
                 );
                 return Ok(());
             }
@@ -6225,13 +6225,13 @@ impl<'a> InstructionTranslator<'a> {
                 let cycle = match access {
                     TraceAccess::ReadReg(i) => LLVMBuildLoad2(
                         self.builder,
-                        LLVMInt32Type(),
+                        LLVMInt64Type(),
                         self.reg_cycle_ptr(i as u32),
                         format!("x{}\0", i).as_ptr() as *const _,
                     ),
                     TraceAccess::ReadFReg(i) => LLVMBuildLoad2(
                         self.builder,
-                        LLVMInt32Type(),
+                        LLVMInt64Type(),
                         self.freg_cycle_ptr(i as u32),
                         format!("f{}\0", i).as_ptr() as *const _,
                     ),
@@ -6242,7 +6242,7 @@ impl<'a> InstructionTranslator<'a> {
 
             // Load the current cycle counter.
             let mut max_cycle =
-                LLVMBuildLoad2(self.builder, LLVMInt32Type(), self.cycle_ptr(), NONAME);
+                LLVMBuildLoad2(self.builder, LLVMInt64Type(), self.cycle_ptr(), NONAME);
             // Instruction takes at least one cycle even if all dependencies are ready
             max_cycle = LLVMBuildAdd(
                 self.builder,
@@ -6746,6 +6746,7 @@ impl<'a> InstructionTranslator<'a> {
             let ptr = self.reg_ptr(rs);
             let data = LLVMBuildLoad2(
                 self.builder,
+                // TODO: type is `SsrState`
                 LLVMInt32Type(),
                 ptr,
                 format!("x{}\0", rs).as_ptr() as *const _,
@@ -6770,7 +6771,7 @@ impl<'a> InstructionTranslator<'a> {
         let ptr = self.freg_ptr(rs);
         let data = LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            LLVMInt64Type(),
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         );
@@ -6792,26 +6793,17 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::ReadFReg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
-        let ptr = if llvm_float {
-            LLVMBuildBitCast(
-                self.builder,
-                raw_ptr,
-                LLVMPointerType(LLVMDoubleType(), 0),
-                NONAME,
-            )
+        let dst_type = if llvm_float {
+            LLVMFloatType()
         } else {
-            LLVMBuildBitCast(
-                self.builder,
-                raw_ptr,
-                LLVMPointerType(LLVMInt64Type(), 0),
-                NONAME,
-            )
+            LLVMDoubleType()
         };
+        let ptr = LLVMBuildBitCast(self.builder, raw_ptr, LLVMPointerType(dst_type, 0), NONAME);
         LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            dst_type,
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         )
@@ -6834,7 +6826,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::ReadFReg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         // read data0
         let ptr_0 = LLVMBuildBitCast(
@@ -6951,49 +6943,49 @@ impl<'a> InstructionTranslator<'a> {
         (
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_7,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_6,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_5,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_4,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_3,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_2,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_1,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt8Type(),
                 ptr_0,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
@@ -7008,7 +7000,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readvf64hReg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         // read data0
         let ptr_0 = LLVMBuildBitCast(
@@ -7065,25 +7057,25 @@ impl<'a> InstructionTranslator<'a> {
         (
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt16Type(),
                 ptr_3,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt16Type(),
                 ptr_2,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt16Type(),
                 ptr_1,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
             LLVMBuildLoad2(
                 self.builder,
-                LLVMInt32Type(),
+                LLVMInt16Type(),
                 ptr_0,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
@@ -7095,7 +7087,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readvf64sReg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
 
         // read data1
@@ -7162,7 +7154,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readf8Reg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         let ptr = LLVMBuildBitCast(
             self.builder,
@@ -7172,7 +7164,7 @@ impl<'a> InstructionTranslator<'a> {
         );
         LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            LLVMInt8Type(),
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         )
@@ -7184,7 +7176,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readf16Reg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         let ptr = LLVMBuildBitCast(
             self.builder,
@@ -7194,7 +7186,7 @@ impl<'a> InstructionTranslator<'a> {
         );
         LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            LLVMInt16Type(),
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         )
@@ -7206,26 +7198,17 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::ReadF32Reg(rs as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
-        let ptr = if llvm_float {
-            LLVMBuildBitCast(
-                self.builder,
-                raw_ptr,
-                LLVMPointerType(LLVMFloatType(), 0),
-                NONAME,
-            )
+        let dst_type = if llvm_float {
+            LLVMFloatType()
         } else {
-            LLVMBuildBitCast(
-                self.builder,
-                raw_ptr,
-                LLVMPointerType(LLVMInt32Type(), 0),
-                NONAME,
-            )
+            LLVMInt32Type()
         };
+        let ptr = LLVMBuildBitCast(self.builder, raw_ptr, LLVMPointerType(dst_type, 0), NONAME);
         LLVMBuildLoad2(
             self.builder,
-            LLVMInt32Type(),
+            dst_type,
             ptr,
             format!("f{}\0", rs).as_ptr() as *const _,
         )
@@ -7252,7 +7235,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data, ptr);
         self.trace_access(
             TraceAccess::WriteFReg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7308,7 +7291,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data2, ptr2);
         self.trace_access(
             TraceAccess::WriteFReg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7386,7 +7369,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data3, ptr_3);
         self.trace_access(
             TraceAccess::Writevf64hReg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7536,7 +7519,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data7, ptr_7);
         self.trace_access(
             TraceAccess::WriteFReg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7597,7 +7580,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data1, ptr_hi);
         self.trace_access(
             TraceAccess::Writevf64sReg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7646,7 +7629,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, data, ptr);
         self.trace_access(
             TraceAccess::WriteF32Reg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), raw_ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7663,7 +7646,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, value, ptr);
         self.trace_access(
             TraceAccess::Writef16Reg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7680,7 +7663,7 @@ impl<'a> InstructionTranslator<'a> {
         LLVMBuildStore(self.builder, value, ptr);
         self.trace_access(
             TraceAccess::Writef8Reg(rd as u8),
-            LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt64Type(), ptr, NONAME),
         );
         self.emit_possible_ssr_write(rd);
     }
@@ -7694,6 +7677,7 @@ impl<'a> InstructionTranslator<'a> {
 
         // Check if SSRs are enabled.
         let enabled_ptr = self.ssr_enabled_ptr();
+        // TODO: Check type, this is a `SsrState` pointer
         let enabled = LLVMBuildLoad2(self.builder, LLVMInt32Type(), enabled_ptr, NONAME);
         let enabled = LLVMBuildTrunc(self.builder, enabled, LLVMInt1Type(), NONAME);
 
@@ -7731,6 +7715,7 @@ impl<'a> InstructionTranslator<'a> {
 
         // Check if SSRs are enabled.
         let enabled_ptr = self.ssr_enabled_ptr();
+        // TODO: Check type, this is a `SsrState` pointer
         let enabled = LLVMBuildLoad2(self.builder, LLVMInt32Type(), enabled_ptr, NONAME);
         let enabled = LLVMBuildTrunc(self.builder, enabled, LLVMInt1Type(), NONAME);
 
