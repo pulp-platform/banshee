@@ -22,7 +22,7 @@ pub fn build() {
             "--crate-type=staticlib",
             "-Copt-level=3",
             "-Cdebuginfo=0",
-            "-Cpanic=abort"
+            "-Cpanic=abort",
         ])
         .status()
         .unwrap();
