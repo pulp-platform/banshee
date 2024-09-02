@@ -7095,7 +7095,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readvf64sReg(rs as u8),
-            LLVMBuildLoad2(self.builder, raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
         );
 
         // read data1
@@ -7147,7 +7147,7 @@ impl<'a> InstructionTranslator<'a> {
                 ptr_hi,
                 format!("f{}\0", rs).as_ptr() as *const _,
             ),
-            LLVMBuildLoad2(self.builder, ptr, format!("f{}\0", rs).as_ptr() as *const _),
+            LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _),
         )
     }
 
@@ -7157,7 +7157,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::Readf8Reg(rs as u8),
-            LLVMBuildLoad2(self.builder, raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
         );
         let ptr = LLVMBuildBitCast(
             self.builder,
@@ -7201,7 +7201,7 @@ impl<'a> InstructionTranslator<'a> {
         let raw_ptr = self.freg_ptr(rs);
         self.trace_access(
             TraceAccess::ReadF32Reg(rs as u8),
-            LLVMBuildLoad2(self.builder, raw_ptr, NONAME),
+            LLVMBuildLoad2(self.builder, LLVMInt32Type(), raw_ptr, NONAME),
         );
         let ptr = if llvm_float {
             LLVMBuildBitCast(
@@ -7218,7 +7218,7 @@ impl<'a> InstructionTranslator<'a> {
                 NONAME,
             )
         };
-        LLVMBuildLoad2(self.builder, ptr, format!("f{}\0", rs).as_ptr() as *const _)
+        LLVMBuildLoad2(self.builder, LLVMInt32Type(), ptr, format!("f{}\0", rs).as_ptr() as *const _)
     }
 
     /// Emit the code to write a f64 value to a float register.
