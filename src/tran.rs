@@ -535,8 +535,9 @@ impl<'a> ElfTranslator<'a> {
         // Emit the illegal branch code.
         LLVMPositionBuilderAtEnd(builder, indirect_fail_bb);
         let indirect_addr = LLVMBuildLoad2(builder, LLVMInt32Type(), indirect_addr_var, NONAME);
-        LLVMBuildCall(
+        LLVMBuildCall2(
             builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.engine.modules[self.cluster_id],
                 "banshee_abort_illegal_branch\0".as_ptr() as *const _,
@@ -892,8 +893,9 @@ impl<'a> SectionTranslator<'a> {
         result_name: &str,
     ) -> LLVMValueRef {
         let args = args.as_ref();
-        let call = LLVMBuildCall(
+        let call = LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             self.elf.lookup_func(name),
             args.as_ptr() as *mut _,
             args.len() as u32,
@@ -1140,8 +1142,9 @@ impl<'a> InstructionTranslator<'a> {
 
         // Emit the regular slow case.
         LLVMPositionBuilderAtEnd(self.builder, bb_no);
-        values.push(LLVMBuildCall(
+        values.push(LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_load\0".as_ptr() as *const _,
@@ -1459,8 +1462,9 @@ impl<'a> InstructionTranslator<'a> {
 
         // Emit the regular slow case.
         LLVMPositionBuilderAtEnd(self.builder, bb_no);
-        values.push(LLVMBuildCall(
+        values.push(LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_rmw\0".as_ptr() as *const _,
@@ -5730,7 +5734,7 @@ impl<'a> InstructionTranslator<'a> {
             [LLVMTypeOf(rs1)].as_mut_ptr(),
             1,
         );
-        LLVMBuildCall(self.builder, decl, [rs1, rs2].as_mut_ptr(), 2, NONAME)
+        LLVMBuildCall2(self.builder, LLVMInt32Type(), decl, [rs1, rs2].as_mut_ptr(), 2, NONAME)
     }
 
     unsafe fn emit_rd_rs1_shamt(&self, data: riscv::FormatRdRs1Shamt) -> Result<()> {
@@ -6453,8 +6457,9 @@ impl<'a> InstructionTranslator<'a> {
 
         // Emit the regular slow case.
         LLVMPositionBuilderAtEnd(self.builder, bb_no);
-        values.push(LLVMBuildCall(
+        values.push(LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_load\0".as_ptr() as *const _,
@@ -7640,8 +7645,9 @@ impl<'a> InstructionTranslator<'a> {
 
     /// Emit the code necessary to read a value from a register.
     unsafe fn read_csr(&self, csr: u32) -> LLVMValueRef {
-        LLVMBuildCall(
+        LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_csr_read\0".as_ptr() as *const _,
@@ -7660,8 +7666,9 @@ impl<'a> InstructionTranslator<'a> {
 
     /// Emit the code necessary to write a value to a register.
     unsafe fn write_csr(&self, csr: u32, data: LLVMValueRef) {
-        LLVMBuildCall(
+        LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_csr_write\0".as_ptr() as *const _,
@@ -7681,8 +7688,9 @@ impl<'a> InstructionTranslator<'a> {
 
     /// Emit the code necessary to read a value from a register.
     unsafe fn read_csr_silent(&self, csr: u32) -> LLVMValueRef {
-        LLVMBuildCall(
+        LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_csr_read\0".as_ptr() as *const _,
@@ -7701,8 +7709,9 @@ impl<'a> InstructionTranslator<'a> {
 
     /// Emit the code necessary to write a value to a register.
     unsafe fn write_csr_silent(&self, csr: u32, data: LLVMValueRef) {
-        LLVMBuildCall(
+        LLVMBuildCall2(
             self.builder,
+            LLVMInt32Type(),
             LLVMGetNamedFunction(
                 self.section.engine.modules[self.section.elf.cluster_id],
                 "banshee_csr_write\0".as_ptr() as *const _,
