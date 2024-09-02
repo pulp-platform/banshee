@@ -6667,7 +6667,7 @@ impl<'a> InstructionTranslator<'a> {
         let index = LLVMBuildSub(self.builder, addr, tcdm_start, NONAME);
         let pty32 = LLVMPointerType(LLVMInt32Type(), 0);
         let pty8 = LLVMPointerType(LLVMInt8Type(), 0);
-        let ptr = LLVMBuildGep2(
+        let ptr = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             LLVMBuildBitCast(self.builder, self.tcdm_ptr(), pty8, NONAME),
@@ -6697,7 +6697,7 @@ impl<'a> InstructionTranslator<'a> {
         let index = LLVMBuildSub(self.builder, addr, tcdm_start, NONAME);
         let pty32 = LLVMPointerType(LLVMInt32Type(), 0);
         let pty8 = LLVMPointerType(LLVMInt8Type(), 0);
-        let ptr = LLVMBuildGep2(
+        let ptr = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             LLVMBuildBitCast(self.builder, self.tcdm_ext_ptr(tcdm_ext.0), pty8, NONAME),
@@ -6850,7 +6850,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_1 = LLVMBuildGep2(
+        let ptr_1 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_1,
@@ -6865,7 +6865,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_2 = LLVMBuildGep2(
+        let ptr_2 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_2,
@@ -6880,7 +6880,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_3 = LLVMBuildGep2(
+        let ptr_3 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_3,
@@ -6895,7 +6895,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_4 = LLVMBuildGep2(
+        let ptr_4 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_4,
@@ -6910,7 +6910,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_5 = LLVMBuildGep2(
+        let ptr_5 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_5,
@@ -6925,7 +6925,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_6 = LLVMBuildGep2(
+        let ptr_6 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_6,
@@ -6940,7 +6940,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_7 = LLVMBuildGep2(
+        let ptr_7 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_7,
@@ -7024,7 +7024,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_1 = LLVMBuildGep2(
+        let ptr_1 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_1,
@@ -7039,7 +7039,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_2 = LLVMBuildGep2(
+        let ptr_2 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_2,
@@ -7054,7 +7054,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_3 = LLVMBuildGep2(
+        let ptr_3 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_3,
@@ -7131,7 +7131,7 @@ impl<'a> InstructionTranslator<'a> {
                 NONAME,
             )
         };
-        let ptr_hi = LLVMBuildGep2(
+        let ptr_hi = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_hi,
@@ -7258,7 +7258,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt32Type(), 0),
             NONAME,
         );
-        let ptr_hi = LLVMBuildGep2(
+        let ptr_hi = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_hi,
@@ -7285,7 +7285,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMFloatType(), 0),
             NONAME,
         );
-        let ptr2 = LLVMBuildGep2(
+        let ptr2 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr2,
@@ -7329,7 +7329,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_1 = LLVMBuildGep2(
+        let ptr_1 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_1,
@@ -7345,7 +7345,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_2 = LLVMBuildGep2(
+        let ptr_2 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_2,
@@ -7361,7 +7361,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt16Type(), 0),
             NONAME,
         );
-        let ptr_3 = LLVMBuildGep2(
+        let ptr_3 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_3,
@@ -7411,7 +7411,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_1 = LLVMBuildGep2(
+        let ptr_1 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_1,
@@ -7427,7 +7427,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_2 = LLVMBuildGep2(
+        let ptr_2 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_2,
@@ -7443,7 +7443,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_3 = LLVMBuildGep2(
+        let ptr_3 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_3,
@@ -7459,7 +7459,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_4 = LLVMBuildGep2(
+        let ptr_4 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_4,
@@ -7475,7 +7475,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_5 = LLVMBuildGep2(
+        let ptr_5 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_5,
@@ -7491,7 +7491,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_6 = LLVMBuildGep2(
+        let ptr_6 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_6,
@@ -7507,7 +7507,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt8Type(), 0),
             NONAME,
         );
-        let ptr_7 = LLVMBuildGep2(
+        let ptr_7 = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_7,
@@ -7557,7 +7557,7 @@ impl<'a> InstructionTranslator<'a> {
             )
         };
 
-        let ptr_hi = LLVMBuildGep2(
+        let ptr_hi = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_hi,
@@ -7603,7 +7603,7 @@ impl<'a> InstructionTranslator<'a> {
             LLVMPointerType(LLVMInt32Type(), 0),
             NONAME,
         );
-        let ptr_hi = LLVMBuildGep2(
+        let ptr_hi = LLVMBuildGEP2(
             self.builder,
             LLVMInt32Type(),
             ptr_hi,
