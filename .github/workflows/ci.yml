@@ -25,7 +25,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Install LLVM
       run: |
-        sudo apt install llvm-15-dev libclang-common-15-dev
+        sudo apt install llvm-15-dev libpolly-15-dev
         echo "LLVM_SYS_150_PREFIX=$(llvm-config-15 --prefix)" >> $GITHUB_ENV
     - name: Build Banshee
       run: cargo build
