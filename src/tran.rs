@@ -3840,14 +3840,12 @@ impl<'a> InstructionTranslator<'a> {
         ff_op: flexfloat::FlexfloatOp,
         fpmode_dst: LLVMValueRef,
     ) {
-        let (a3, a2, a1, a0) = self.read_freg_vf64h(data.rs1);
-        let (b3, b2, b1, b0) = self.read_freg_vf64h(data.rs2);
-        let (c3, c2, c1, c0) = self.read_freg_vf64h(data.rd);
+        let (a1, a0) = self.read_freg_vf32h(data.rs1);
+        let (b1, b0) = self.read_freg_vf32h(data.rs2);
+        let (c1, c0) = self.read_freg_vf32h(data.rd);
         let res0 = self.emit_fp16_op(a0, b0, c0, ff_op, fpmode_dst);
         let res1 = self.emit_fp16_op(a1, b1, c1, ff_op, fpmode_dst);
-        let res2 = self.emit_fp16_op(a2, b2, c2, ff_op, fpmode_dst);
-        let res3 = self.emit_fp16_op(a3, b3, c3, ff_op, fpmode_dst);
-        self.write_freg_vf64h(data.rd, res3, res2, res1, res0);
+        self.write_freg_vf32h(data.rd, res1, res0);
     }
 
     /// emit vfp168 or vfp16alt computation instruction to flexfloat (R)
@@ -5447,8 +5445,7 @@ impl<'a> InstructionTranslator<'a> {
                     fpmode_src,
                     fpmode_dst,
                 );
-                let (rd3, rd2, _rd1, _rd0) = self.read_freg_vf64h(data.rd);
-                self.write_freg_vf64h(data.rd, rd3, rd2, res1, res0);
+                self.write_freg_vf32h(data.rd, res1, res0);
                 return Ok(());
             }
             riscv::OpcodeRdRs1Rs2::VfcpkbHS => {
@@ -5552,51 +5549,31 @@ impl<'a> InstructionTranslator<'a> {
             //     return Ok(());
             // }
             riscv::OpcodeRdRs1Rs2::VfdotpexSH => {
-                let (a3, a2, a1, a0) = self.read_freg_vf64h(data.rs1);
-                let (b3, b2, b1, b0) = self.read_freg_vf64h(data.rs2);
-                let (c1, c0) = self.read_freg_vf64s(data.rd, true);
+                let (a1, a0) = self.read_freg_vf32h(data.rs1);
+                let (b1, b0) = self.read_freg_vf32h(data.rs2);
+                let c = self.read_freg_f32(data.rd, true);
                 let (_fpmode_src, fpmode_dst) = self.read_fpmode();
                 let res0 = self.emit_fp16_to_fp32_op(
                     b0,
                     a0,
-                    c0,
+                    c,
                     flexfloat::FlexfloatOpExp::FmulexSH,
                     fpmode_dst,
                 );
                 let res1 = self.emit_fp16_to_fp32_op(
                     b1,
                     a1,
-                    c0,
-                    flexfloat::FlexfloatOpExp::FmulexSH,
-                    fpmode_dst,
-                );
-                let res2 = self.emit_fp16_to_fp32_op(
-                    b2,
-                    a2,
-                    c0,
-                    flexfloat::FlexfloatOpExp::FmulexSH,
-                    fpmode_dst,
-                );
-                let res3 = self.emit_fp16_to_fp32_op(
-                    b3,
-                    a3,
-                    c0,
+                    c,
                     flexfloat::FlexfloatOpExp::FmulexSH,
                     fpmode_dst,
                 );
                 let res0 = LLVMBuildFAdd(
                     self.builder,
                     LLVMBuildFAdd(self.builder, res1, res0, name),
-                    c0,
+                    c,
                     name,
                 );
-                let res1 = LLVMBuildFAdd(
-                    self.builder,
-                    LLVMBuildFAdd(self.builder, res3, res2, name),
-                    c1,
-                    name,
-                );
-                self.write_freg_vf64s(data.rd, res1, res0, true);
+                self.write_freg_f32(data.rd, res0, true);
                 return Ok(());
             }
             riscv::OpcodeRdRs1Rs2::VfdotpexSRH => {
@@ -9499,7 +9476,7 @@ impl<'a> InstructionTranslator<'a> {
         let ptr = self.reg_ptr(rs);
         let data = LLVMBuildLoad(self.builder, ptr, format!("f{}\0", rs).as_ptr() as *const _);
         self.trace_access(TraceAccess::ReadFReg(rs as u8), data);
-        let data = LLVMBuildIntCast(self.builder, data, LLVMInt64Type(), NONAME);
+        let data = LLVMBuildZExt(self.builder, data, LLVMInt64Type(), NONAME);
         data
     }
 
@@ -9843,6 +9820,50 @@ impl<'a> InstructionTranslator<'a> {
         )
     }
 
+    unsafe fn read_freg_vf32h(
+        &self,
+        rs: u32,
+    ) -> (LLVMValueRef, LLVMValueRef) {
+        let raw_ptr = self.reg_ptr(rs);
+        self.trace_access(
+            TraceAccess::Readvf32hReg(rs as u8),
+            LLVMBuildLoad(self.builder, raw_ptr, NONAME),
+        );
+        // read data0
+        let ptr_0 = LLVMBuildBitCast(
+            self.builder,
+            raw_ptr,
+            LLVMPointerType(LLVMInt16Type(), 0),
+            NONAME,
+        );
+        // read data1
+        let ptr_1 = LLVMBuildBitCast(
+            self.builder,
+            raw_ptr,
+            LLVMPointerType(LLVMInt16Type(), 0),
+            NONAME,
+        );
+        let ptr_1 = LLVMBuildGEP(
+            self.builder,
+            ptr_1,
+            [LLVMConstInt(LLVMInt16Type(), 1, 0)].as_mut_ptr(),
+            1 as u32,
+            NONAME,
+        );
+        (
+            LLVMBuildLoad(
+                self.builder,
+                ptr_1,
+                format!("f{}\0", rs).as_ptr() as *const _,
+            ),
+            LLVMBuildLoad(
+                self.builder,
+                ptr_0,
+                format!("f{}\0", rs).as_ptr() as *const _,
+            ),
+        )
+    }
+
     /// Emit the code to read a f16 value from a float register.
     unsafe fn read_freg_f8(&self, rs: u32) -> LLVMValueRef {
         let raw_ptr = self.reg_ptr(rs);
@@ -10042,6 +10063,11 @@ impl<'a> InstructionTranslator<'a> {
             NONAME,
         );
 
+        let data0 = LLVMBuildIntCast(self.builder, data0, LLVMInt16Type(), NONAME);
+        let data1 = LLVMBuildIntCast(self.builder, data1, LLVMInt16Type(), NONAME);
+        let data2 = LLVMBuildIntCast(self.builder, data2, LLVMInt16Type(), NONAME);
+        let data3 = LLVMBuildIntCast(self.builder, data3, LLVMInt16Type(), NONAME);
+
         LLVMBuildStore(self.builder, data0, ptr_0);
         LLVMBuildStore(self.builder, data1, ptr_1);
         LLVMBuildStore(self.builder, data2, ptr_2);
@@ -10225,31 +10251,53 @@ impl<'a> InstructionTranslator<'a> {
         );
     }
 
+    /// Emit the code to write multiple f16 values into a 64-bit float register.
+    unsafe fn write_freg_vf32h(
+        &self,
+        rd: u32,
+        data1: LLVMValueRef,
+        data0: LLVMValueRef,
+    ) {
+        let raw_ptr = self.reg_ptr(rd);
+
+        // Write data0
+        let ptr_0 = LLVMBuildBitCast(
+            self.builder,
+            raw_ptr,
+            LLVMPointerType(LLVMInt16Type(), 0),
+            NONAME,
+        );
+
+        // Write data1
+        let ptr_1 = LLVMBuildBitCast(
+            self.builder,
+            raw_ptr,
+            LLVMPointerType(LLVMInt16Type(), 0),
+            NONAME,
+        );
+        let ptr_1 = LLVMBuildGEP(
+            self.builder,
+            ptr_1,
+            [LLVMConstInt(LLVMInt16Type(), 1, 0)].as_mut_ptr(),
+            1 as u32,
+            NONAME,
+        );
+
+        let data0 = LLVMBuildIntCast(self.builder, data0, LLVMInt16Type(), NONAME);
+        let data1 = LLVMBuildIntCast(self.builder, data1, LLVMInt16Type(), NONAME);
+
+        LLVMBuildStore(self.builder, data0, ptr_0);
+        LLVMBuildStore(self.builder, data1, ptr_1);
+        self.trace_access(
+            TraceAccess::Writevf32hReg(rd as u8),
+            LLVMBuildLoad(self.builder, raw_ptr, NONAME),
+        );
+    }
+
     /// Emit the code to write a f32 value to a float register.
     unsafe fn write_freg_f32(&self, rd: u32, data: LLVMValueRef, llvm_float: bool) {
         let raw_ptr = self.reg_ptr(rd);
 
-        // Nanbox the value.
-        let ptr_hi = LLVMBuildBitCast(
-            self.builder,
-            raw_ptr,
-            LLVMPointerType(LLVMInt32Type(), 0),
-            NONAME,
-        );
-        let ptr_hi = LLVMBuildGEP(
-            self.builder,
-            ptr_hi,
-            [LLVMConstInt(LLVMInt32Type(), 1, 0)].as_mut_ptr(),
-            1 as u32,
-            NONAME,
-        );
-        LLVMBuildStore(
-            self.builder,
-            LLVMConstInt(LLVMInt32Type(), -1i32 as u64, 0),
-            ptr_hi,
-        );
-
-        // Write the actual value.
         let ptr = if llvm_float {
             LLVMBuildBitCast(
                 self.builder,
@@ -10276,8 +10324,8 @@ impl<'a> InstructionTranslator<'a> {
     unsafe fn write_freg_f16(&self, rd: u32, data: LLVMValueRef) {
         // Nan-box value
         let data = LLVMBuildIntCast(self.builder, data, LLVMInt16Type(), NONAME);
-        let nan_box = LLVMConstInt(LLVMInt64Type(), (-1i64 - 0xffff) as u64, 0);
-        let value = LLVMBuildZExt(self.builder, data, LLVMInt64Type(), NONAME);
+        let nan_box = LLVMConstInt(LLVMInt32Type(), (-1i32 - 0xffff) as u64, 0);
+        let value = LLVMBuildZExt(self.builder, data, LLVMInt32Type(), NONAME);
         let value = LLVMBuildOr(self.builder, nan_box, value, NONAME);
         let value = LLVMBuildIntCast(self.builder, value, LLVMInt32Type(), NONAME);
 
@@ -10293,8 +10341,8 @@ impl<'a> InstructionTranslator<'a> {
     /// Emit the code to write a f8 value to a float register.
     unsafe fn write_freg_f8(&self, rd: u32, data: LLVMValueRef) {
         // Nan-box value
-        let nan_box = LLVMConstInt(LLVMInt64Type(), (-1i64 - 0xff) as u64, 0);
-        let value = LLVMBuildZExt(self.builder, data, LLVMInt64Type(), NONAME);
+        let nan_box = LLVMConstInt(LLVMInt64Type(), (-1i32 - 0xff) as u64, 0);
+        let value = LLVMBuildZExt(self.builder, data, LLVMInt32Type(), NONAME);
         let value = LLVMBuildOr(self.builder, nan_box, value, NONAME);
 
         // Store value

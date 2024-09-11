@@ -1410,6 +1410,38 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     false
                 ) as u32),
             ),
+            TraceAccess::Readvf32hReg(x) => format!(
+                "f{:02}:[{:>8.4}, {:>8.4}]",
+                x,
+                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                    (data & 0xffff_0000) >> 16,
+                    flexfloat::FfOpCvt::Fcvt16f2f,
+                    false,
+                    false
+                ) as u32),
+                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                    (data & 0x0000_ffff) >> 0,
+                    flexfloat::FfOpCvt::Fcvt16f2f,
+                    false,
+                    false
+                ) as u32),
+            ),
+            TraceAccess::Writevf32hReg(x) => format!(
+                "f{:02}=[{:>8.4}, {:>8.4}]",
+                x,
+                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                    (data & 0xffff_0000) >> 16,
+                    flexfloat::FfOpCvt::Fcvt16f2f,
+                    false,
+                    false
+                ) as u32),
+                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                    (data & 0x0000_ffff) >> 0,
+                    flexfloat::FfOpCvt::Fcvt16f2f,
+                    false,
+                    false
+                ) as u32),
+            ),
         });
         let args = args.join(" ");
 
@@ -1674,6 +1706,7 @@ pub enum TraceAccess {
     Readvf64sReg(u8),
     Readvf64hReg(u8),
     Readvf64bReg(u8),
+    Readvf32hReg(u8),
     WriteMem,
     WriteReg(u8),
     WriteFReg(u8),
@@ -1683,6 +1716,7 @@ pub enum TraceAccess {
     Writevf64sReg(u8),
     Writevf64hReg(u8),
     Writevf64bReg(u8),
+    Writevf32hReg(u8),
     RMWMem,
 }
 
