@@ -3120,6 +3120,29 @@ impl<'a> InstructionTranslator<'a> {
                 );
                 self.write_freg_f16(data.rd, value);
             }
+            riscv::OpcodeRdRmRs1::FcvtSH => {
+//                let (fpmode_src, fpmode_dst) = self.read_fpmode();
+//                let rs1 = self.read_freg_f16(data.rs1);
+//                let rs1 = LLVMBuildZExt(self.builder, rs1, LLVMInt64Type(), NONAME);
+//                let value = self.emit_fp32_op_cvt_to_f(
+//                    rs1,
+//                    flexfloat::FfOpCvt::Fcvt16f2f,
+//                    fpmode_src,
+//                    fpmode_dst,
+//                );
+//                let value = LLVMBuildBitCast(self.builder, value, LLVMFloatType(), NONAME);
+//                self.write_freg_f32(data.rd, value, true);
+                let (fpmode_src, fpmode_dst) = self.read_fpmode();
+                let rs1 = self.read_freg(data.rs1);
+                let rs1 = LLVMBuildZExt(self.builder, rs1, LLVMInt64Type(), NONAME);
+                let value = self.emit_fp16_op_cvt_to_f(
+                    rs1,
+                    flexfloat::FfOpCvt::Fcvt32f2f,
+                    fpmode_src,
+                    fpmode_dst,
+                );
+                self.write_freg_f16(data.rd, value);
+            }
             riscv::OpcodeRdRmRs1::FsqrtD => {
                 let (fpmode_src, fpmode_dst) = self.read_fpmode();
                 let rs1 = self.read_freg_f64(data.rs1, false);
@@ -4370,19 +4393,6 @@ impl<'a> InstructionTranslator<'a> {
                 );
                 self.write_freg_f16(data.rd, value);
             }
-            riscv::OpcodeRdRs1::FcvtSH => {
-                let (fpmode_src, fpmode_dst) = self.read_fpmode();
-                let rs1 = self.read_freg_f16(data.rs1);
-                let rs1 = LLVMBuildZExt(self.builder, rs1, LLVMInt64Type(), NONAME);
-                let value = self.emit_fp32_op_cvt_to_f(
-                    rs1,
-                    flexfloat::FfOpCvt::Fcvt16f2f,
-                    fpmode_src,
-                    fpmode_dst,
-                );
-                let value = LLVMBuildBitCast(self.builder, value, LLVMFloatType(), NONAME);
-                self.write_freg_f32(data.rd, value, true);
-            }
             riscv::OpcodeRdRs1::FcvtDH => {
                 let (fpmode_src, fpmode_dst) = self.read_fpmode();
                 let rs1 = self.read_freg_f16(data.rs1);
@@ -5624,7 +5634,98 @@ impl<'a> InstructionTranslator<'a> {
                 self.write_freg_vf64s(data.rd, res1, res0, true);
                 return Ok(());
             }
-
+            riscv::OpcodeRdRs1Rs2::VfndotpexSH => {
+                let (a1, a0) = self.read_freg_vf32h(data.rs1);
+                let (b1, b0) = self.read_freg_vf32h(data.rs2);
+                let c = self.read_freg_f32(data.rd, true);
+                let (_fpmode_src, fpmode_dst) = self.read_fpmode();
+                let res0 = self.emit_fp16_to_fp32_op(
+                    b0,
+                    a0,
+                    c,
+                    flexfloat::FlexfloatOpExp::FmulexSH,
+                    fpmode_dst,
+                );
+                let res1 = self.emit_fp16_to_fp32_op(
+                    b1,
+                    a1,
+                    c,
+                    flexfloat::FlexfloatOpExp::FmulexSH,
+                    fpmode_dst,
+                );
+                let res0 = LLVMBuildFSub(
+                    self.builder,
+                    LLVMBuildFAdd(self.builder, res1, res0, name),
+                    c,
+                    name,
+                );
+                self.write_freg_f32(data.rd, res0, true);
+                return Ok(());
+            }
+            riscv::OpcodeRdRs1Rs2::FcdotpexSH => {
+                let (a, b) = self.read_freg_vf32h(data.rs1);
+                let (c, d) = self.read_freg_vf32h(data.rs2);
+                let (e, f) = self.read_freg_vf32h(data.rd);
+                let (_fpmode_src, fpmode_dst) = self.read_fpmode();
+                let res_re = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_im = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_re = self.emit_fp16_op(a, c, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(b, d, res_re, flexfloat::FlexfloatOp::Fnmsub, fpmode_dst);
+                let res_re = self.emit_fp16_op(res_re, e, res_re, flexfloat::FlexfloatOp::Fadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(b, c, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(a, d, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(res_im, f, res_im, flexfloat::FlexfloatOp::Fadd, fpmode_dst);
+                self.write_freg_vf32h(data.rd, res_re, res_im);
+                return Ok(());
+            }
+            riscv::OpcodeRdRs1Rs2::FcndotpexSH => {
+                let (a, b) = self.read_freg_vf32h(data.rs1);
+                let (c, d) = self.read_freg_vf32h(data.rs2);
+                let (e, f) = self.read_freg_vf32h(data.rd);
+                let (_fpmode_src, fpmode_dst) = self.read_fpmode();
+                let res_re = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_im = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_re = self.emit_fp16_op(a, c, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(b, d, res_re, flexfloat::FlexfloatOp::Fnmsub, fpmode_dst);
+                let res_re = self.emit_fp16_op(e, res_re, res_re, flexfloat::FlexfloatOp::Fsub, fpmode_dst);
+                let res_im = self.emit_fp16_op(b, c, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(a, d, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(f, res_im, res_im, flexfloat::FlexfloatOp::Fsub, fpmode_dst);
+                self.write_freg_vf32h(data.rd, res_re, res_im);
+                return Ok(());
+            }
+            riscv::OpcodeRdRs1Rs2::FccdotpexSH => {
+                let (a, b) = self.read_freg_vf32h(data.rs1);
+                let (c, d) = self.read_freg_vf32h(data.rs2);
+                let (e, f) = self.read_freg_vf32h(data.rd);
+                let (_fpmode_src, fpmode_dst) = self.read_fpmode();
+                let res_re = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_im = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_re = self.emit_fp16_op(a, c, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(b, d, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(e, res_re, res_re, flexfloat::FlexfloatOp::Fadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(b, c, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(a, d, res_im, flexfloat::FlexfloatOp::Fnmsub, fpmode_dst);
+                let res_im = self.emit_fp16_op(f, res_im, res_im, flexfloat::FlexfloatOp::Fadd, fpmode_dst);
+                self.write_freg_vf32h(data.rd, res_re, res_im);
+                return Ok(());
+            }
+            riscv::OpcodeRdRs1Rs2::FccndotpexSH => {
+                let (a, b) = self.read_freg_vf32h(data.rs1);
+                let (c, d) = self.read_freg_vf32h(data.rs2);
+                let (e, f) = self.read_freg_vf32h(data.rd);
+                let (_fpmode_src, fpmode_dst) = self.read_fpmode();
+                let res_re = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_im = LLVMConstInt(LLVMInt16Type(), 0 as u64, 0);
+                let res_re = self.emit_fp16_op(a, c, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(b, d, res_re, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_re = self.emit_fp16_op(e, res_re, res_re, flexfloat::FlexfloatOp::Fsub, fpmode_dst);
+                let res_im = self.emit_fp16_op(b, c, res_im, flexfloat::FlexfloatOp::Fmadd, fpmode_dst);
+                let res_im = self.emit_fp16_op(a, d, res_im, flexfloat::FlexfloatOp::Fnmsub, fpmode_dst);
+                let res_im = self.emit_fp16_op(f, res_im, res_im, flexfloat::FlexfloatOp::Fsub, fpmode_dst);
+                self.write_freg_vf32h(data.rd, res_re, res_im);
+                return Ok(());
+            }
             // VFloatS instructions
             riscv::OpcodeRdRs1Rs2::VfaddS => {
                 let (a1, a0) = self.read_freg_vf64s(data.rs1, true);

@@ -1286,6 +1286,7 @@ pub enum OpcodeRdRmRs1 {
     FcvtHD,
     FcvtHH,
     FcvtBH,
+    FcvtSH,
 }
 
 impl std::fmt::Display for FormatRdRmRs1 {
@@ -1347,6 +1348,7 @@ impl std::fmt::Display for OpcodeRdRmRs1 {
             Self::FcvtHD => write!(f, "fcvt.h.d"),
             Self::FcvtHH => write!(f, "fcvt.h.h"),
             Self::FcvtBH => write!(f, "fcvt.b.h"),
+            Self::FcvtSH => write!(f, "fcvt.s.h"),
         }
     }
 }
@@ -1541,7 +1543,6 @@ pub enum OpcodeRdRs1 {
     FmvXH,
     FclassH,
     FmvHX,
-    FcvtSH,
     FcvtDH,
     FcvtHB,
     FcvtBB,
@@ -1639,7 +1640,6 @@ impl std::fmt::Display for OpcodeRdRs1 {
             Self::FmvXH => write!(f, "fmv.x.h"),
             Self::FclassH => write!(f, "fclass.h"),
             Self::FmvHX => write!(f, "fmv.h.x"),
-            Self::FcvtSH => write!(f, "fcvt.s.h"),
             Self::FcvtDH => write!(f, "fcvt.d.h"),
             Self::FcvtHB => write!(f, "fcvt.h.b"),
             Self::FcvtBB => write!(f, "fcvt.b.b"),
@@ -2066,6 +2066,10 @@ pub enum OpcodeRdRs1Rs2 {
     VfdotpexHRB,
     VfndotpexHB,
     VfndotpexHRB,
+    FcdotpexSH,
+    FcndotpexSH,
+    FccdotpexSH,
+    FccndotpexSH
 }
 
 impl std::fmt::Display for FormatRdRs1Rs2 {
@@ -2435,6 +2439,10 @@ impl std::fmt::Display for OpcodeRdRs1Rs2 {
             Self::VfdotpexHRB => write!(f, "vfdotpex.h.r.b"),
             Self::VfndotpexHB => write!(f, "vfndotpex.h.b"),
             Self::VfndotpexHRB => write!(f, "vfndotpex.h.r.b"),
+            Self::FcdotpexSH => write!(f, "fcdotpex.s.h"),
+            Self::FcndotpexSH => write!(f, "fcndotpex.s.h"),
+            Self::FccdotpexSH => write!(f, "fccdotpex.s.h"),
+            Self::FccndotpexSH => write!(f, "fccndotpex.s.h"),
         }
     }
 }
@@ -3272,6 +3280,10 @@ pub fn parse_u32(raw: u32) -> Format {
         0x96004033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfdotpexSRH, raw),
         0xba000033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfndotpexSH, raw),
         0xba004033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfndotpexSRH, raw),
+        0x96000077 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::FcdotpexSH, raw),
+        0x96004077 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::FcndotpexSH, raw),
+        0xba000077 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::FccdotpexSH, raw),
+        0xba004077 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::FccndotpexSH, raw),
         0x96002033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfdotpexHB, raw),
         0x96006033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfdotpexHRB, raw),
         0xba002033 => return parse_rd_rs1_rs2(OpcodeRdRs1Rs2::VfndotpexHB, raw),
@@ -3335,6 +3347,7 @@ pub fn parse_u32(raw: u32) -> Format {
         0x44100053 => return parse_rd_rm_rs1(OpcodeRdRmRs1::FcvtHD, raw),
         0x44200053 => return parse_rd_rm_rs1(OpcodeRdRmRs1::FcvtHH, raw),
         0x46200053 => return parse_rd_rm_rs1(OpcodeRdRmRs1::FcvtBH, raw),
+        0x40200053 => return parse_rd_rm_rs1(OpcodeRdRmRs1::FcvtSH, raw),
         _ => (),
     }
     match raw & 0xfff0707f {
@@ -3368,7 +3381,6 @@ pub fn parse_u32(raw: u32) -> Format {
         0xe4000053 => return parse_rd_rs1(OpcodeRdRs1::FmvXH, raw),
         0xe4001053 => return parse_rd_rs1(OpcodeRdRs1::FclassH, raw),
         0xf4000053 => return parse_rd_rs1(OpcodeRdRs1::FmvHX, raw),
-        0x40200053 => return parse_rd_rs1(OpcodeRdRs1::FcvtSH, raw),
         0x42200053 => return parse_rd_rs1(OpcodeRdRs1::FcvtDH, raw),
         0x44300053 => return parse_rd_rs1(OpcodeRdRs1::FcvtHB, raw),
         0x46300053 => return parse_rd_rs1(OpcodeRdRs1::FcvtBB, raw),
@@ -4537,6 +4549,10 @@ pub struct Latency {
     vfdotpex_s_r_h: u8,
     vfndotpex_s_h: u8,
     vfndotpex_s_r_h: u8,
+    fcdotpex_s_h: u8,
+    fcndotpex_s_r_h: u8,
+    fccdotpex_s_h: u8,
+    fccndotpex_s_r_h: u8,
     vfdotpex_h_b: u8,
     vfdotpex_h_r_b: u8,
     vfndotpex_h_b: u8,
@@ -5282,6 +5298,10 @@ impl Default for Latency {
             vfdotpex_s_r_h: 1,
             vfndotpex_s_h: 1,
             vfndotpex_s_r_h: 1,
+            fcdotpex_s_h: 1,
+            fcndotpex_s_r_h: 1,
+            fccdotpex_s_h: 1,
+            fccndotpex_s_r_h: 1,
             vfdotpex_h_b: 1,
             vfdotpex_h_r_b: 1,
             vfndotpex_h_b: 1,
