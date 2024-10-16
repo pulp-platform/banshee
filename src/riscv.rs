@@ -3382,7 +3382,7 @@ pub fn parse_u32(raw: u32) -> Format {
         0xe4001053 => return parse_rd_rs1(OpcodeRdRs1::FclassH, raw),
         0xf4000053 => return parse_rd_rs1(OpcodeRdRs1::FmvHX, raw),
         0x42200053 => return parse_rd_rs1(OpcodeRdRs1::FcvtDH, raw),
-        0x44300053 => return parse_rd_rs1(OpcodeRdRs1::FcvtHB, raw),
+        0x44307053 => return parse_rd_rs1(OpcodeRdRs1::FcvtHB, raw),
         0x46300053 => return parse_rd_rs1(OpcodeRdRs1::FcvtBB, raw),
         0x8e000033 => return parse_rd_rs1(OpcodeRdRs1::VfsqrtS, raw),
         0x98100033 => return parse_rd_rs1(OpcodeRdRs1::VfclassS, raw),

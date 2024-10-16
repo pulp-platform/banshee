@@ -3631,6 +3631,9 @@ impl<'a> InstructionTranslator<'a> {
         // Encode the operation
         let op_value: u8 = std::mem::transmute(op as u8);
         let op = LLVMConstInt(LLVMInt8Type(), op_value as u64, 0);
+        let rs1 = LLVMBuildIntCast(self.builder, rs1, LLVMInt8Type(), NONAME);
+        let rs2 = LLVMBuildIntCast(self.builder, rs2, LLVMInt8Type(), NONAME);
+        let rs3 = LLVMBuildIntCast(self.builder, rs3, LLVMInt8Type(), NONAME);
         let rd = self.section.emit_call_with_name(
             "banshee_fp8_op",
             [rs1, rs2, rs3, op, fpmode_dst],
@@ -4392,6 +4395,7 @@ impl<'a> InstructionTranslator<'a> {
                     fpmode_dst,
                 );
                 self.write_freg_f16(data.rd, value);
+                return Ok(());
             }
             riscv::OpcodeRdRs1::FcvtDH => {
                 let (fpmode_src, fpmode_dst) = self.read_fpmode();
@@ -10307,6 +10311,15 @@ impl<'a> InstructionTranslator<'a> {
             NONAME,
         );
 
+        let data0 = LLVMBuildIntCast(self.builder, data0, LLVMInt8Type(), NONAME);
+        let data1 = LLVMBuildIntCast(self.builder, data1, LLVMInt8Type(), NONAME);
+        let data2 = LLVMBuildIntCast(self.builder, data2, LLVMInt8Type(), NONAME);
+        let data3 = LLVMBuildIntCast(self.builder, data3, LLVMInt8Type(), NONAME);
+        let data4 = LLVMBuildIntCast(self.builder, data4, LLVMInt8Type(), NONAME);
+        let data5 = LLVMBuildIntCast(self.builder, data5, LLVMInt8Type(), NONAME);
+        let data6 = LLVMBuildIntCast(self.builder, data6, LLVMInt8Type(), NONAME);
+        let data7 = LLVMBuildIntCast(self.builder, data7, LLVMInt8Type(), NONAME);
+
         LLVMBuildStore(self.builder, data0, ptr_0);
         LLVMBuildStore(self.builder, data1, ptr_1);
         LLVMBuildStore(self.builder, data2, ptr_2);
@@ -10442,9 +10455,11 @@ impl<'a> InstructionTranslator<'a> {
     /// Emit the code to write a f8 value to a float register.
     unsafe fn write_freg_f8(&self, rd: u32, data: LLVMValueRef) {
         // Nan-box value
-        let nan_box = LLVMConstInt(LLVMInt64Type(), (-1i32 - 0xff) as u64, 0);
+        let data = LLVMBuildIntCast(self.builder, data, LLVMInt8Type(), NONAME);
+        let nan_box = LLVMConstInt(LLVMInt32Type(), (-1i32 - 0xff) as u64, 0);
         let value = LLVMBuildZExt(self.builder, data, LLVMInt32Type(), NONAME);
         let value = LLVMBuildOr(self.builder, nan_box, value, NONAME);
+        let value = LLVMBuildIntCast(self.builder, value, LLVMInt32Type(), NONAME);
 
         // Store value
         let ptr = self.reg_ptr(rd);
