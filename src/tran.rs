@@ -9044,7 +9044,27 @@ impl<'a> InstructionTranslator<'a> {
                     TraceAccess::ReadFReg(i) => LLVMBuildLoad(
                         self.builder,
                         self.freg_cycle_ptr(i as u32),
-                        format!("f{}\0", i).as_ptr() as *const _,
+                        format!("f{:02}", i).as_ptr() as *const _,
+                    ),
+                    TraceAccess::ReadF32Reg(i) => LLVMBuildLoad(
+                        self.builder,
+                        self.freg_cycle_ptr(i as u32),
+                        format!("f{:02}", i).as_ptr() as *const _,
+                    ),
+                    TraceAccess::Readf16Reg(i) => LLVMBuildLoad(
+                        self.builder,
+                        self.freg_cycle_ptr(i as u32),
+                        format!("f{:02}", i).as_ptr() as *const _,
+                    ),
+                    TraceAccess::Readf8Reg(i) => LLVMBuildLoad(
+                        self.builder,
+                        self.freg_cycle_ptr(i as u32),
+                        format!("f{:02}", i).as_ptr() as *const _,
+                    ),
+                    TraceAccess::Readvf32hReg(i) => LLVMBuildLoad(
+                        self.builder,
+                        self.freg_cycle_ptr(i as u32),
+                        format!("f{:02}", i).as_ptr() as *const _,
                     ),
                     _ => continue,
                 };
@@ -9125,6 +9145,30 @@ impl<'a> InstructionTranslator<'a> {
                         LLVMBuildStore(self.builder, cycle, self.reg_cycle_ptr(i as u32))
                     }
                     TraceAccess::WriteFReg(i) => {
+                        let cycle =
+                            self.emit_latency_cycle(i, &mem_latencies, gen_latency, max_cycle);
+
+                        LLVMBuildStore(self.builder, cycle, self.freg_cycle_ptr(i as u32))
+                    }
+                    TraceAccess::WriteF32Reg(i) => {
+                        let cycle =
+                            self.emit_latency_cycle(i, &mem_latencies, gen_latency, max_cycle);
+
+                        LLVMBuildStore(self.builder, cycle, self.freg_cycle_ptr(i as u32))
+                    }
+                    TraceAccess::Writef16Reg(i) => {
+                        let cycle =
+                            self.emit_latency_cycle(i, &mem_latencies, gen_latency, max_cycle);
+
+                        LLVMBuildStore(self.builder, cycle, self.freg_cycle_ptr(i as u32))
+                    }
+                    TraceAccess::Writef8Reg(i) => {
+                        let cycle =
+                            self.emit_latency_cycle(i, &mem_latencies, gen_latency, max_cycle);
+
+                        LLVMBuildStore(self.builder, cycle, self.freg_cycle_ptr(i as u32))
+                    }
+                    TraceAccess::Writevf32hReg(i) => {
                         let cycle =
                             self.emit_latency_cycle(i, &mem_latencies, gen_latency, max_cycle);
 
