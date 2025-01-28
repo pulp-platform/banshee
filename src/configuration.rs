@@ -21,6 +21,8 @@ pub struct Configuration {
     #[serde(default)]
     pub address: Address,
     #[serde(default)]
+    pub float_instr: FloatInstr,
+    #[serde(default)]
     pub inst_latency: std::collections::HashMap<String, u64>,
     #[serde(default)]
     pub ssr: Ssr,
@@ -35,6 +37,7 @@ impl Default for Configuration {
             bootrom: Default::default(),
             memory: Default::default(),
             address: Default::default(),
+            float_instr: Default::default(),
             inst_latency: Default::default(),
             ssr: Default::default(),
             interrupt_latency: 10,
@@ -56,6 +59,7 @@ impl Configuration {
             memory: Default::default(),
             address: Default::default(),
             inst_latency: Default::default(),
+            float_instr: Default::default(),
             ssr: Default::default(),
             interrupt_latency: 10,
         }
@@ -243,6 +247,21 @@ pub struct Ssr {
 impl Default for Ssr {
     fn default() -> Ssr {
         Ssr { num_dm: 3 }
+    }
+}
+
+/// Struct to configure the floating-point ISA features
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FloatInstr {
+    pub width: usize,
+    pub zfinx: bool,
+}
+
+impl Default for FloatInstr {
+    fn default() -> FloatInstr {
+        FloatInstr {
+            width: 32,
+            zfinx: false }
     }
 }
 

@@ -40,6 +40,9 @@ memory:
         size: 0x10000
       - name: mempool-dma
         size: 0x1C
+float_instr:
+  width: 32
+  zfinx: true
 inst_latency:
   mul: 4
   mulh: 4

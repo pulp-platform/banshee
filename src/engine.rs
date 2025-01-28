@@ -1185,18 +1185,31 @@ impl<'a, 'b> Cpu<'a, 'b> {
         // Assemble the arguments.
         let args = accesses.iter().copied().zip(data.iter().copied());
         let mut args = args.map(|(access, data)| match access {
+            // Memory access cases
             TraceAccess::ReadMem(_x) => format!("RA:{:08x}", data as u32),
             TraceAccess::WriteMem => format!("WA:{:08x}", data as u32),
             TraceAccess::RMWMem => format!("AMO:{:08x}", data as u32),
+
+            // Register access cases
             TraceAccess::ReadReg(x) => format!("x{}:{:08x}", x, data as u32),
             TraceAccess::WriteReg(x) => format!("x{}={:08x}", x, data as u32),
-            TraceAccess::ReadFReg(x) => format!("f{:02}:{:>16.6}", x, f64::from_bits(data)),
-            TraceAccess::WriteFReg(x) => format!("f{:02}={:>16.6}", x, f64::from_bits(data)),
-            TraceAccess::ReadF32Reg(x) => {
-                format!("f{:02}:{:>12.4}", x, f32::from_bits(data as u32))
-            }
-            TraceAccess::WriteF32Reg(x) => {
-                format!("f{:02}={:>12.4}", x, f32::from_bits(data as u32))
+
+            // Floating-point register access cases
+            TraceAccess::ReadFReg(x)
+            | TraceAccess::WriteFReg(x)
+            | TraceAccess::ReadF32Reg(x)
+            | TraceAccess::WriteF32Reg(x) => {
+                if self.engine.config.float_instr.zfinx {
+                    format!("x{}={:08x}", x, data as u32)
+                } else {
+                    match access {
+                        TraceAccess::ReadFReg(_) => format!("f{:02}:{:>16.6}", x, f64::from_bits(data)),
+                        TraceAccess::WriteFReg(_) => format!("f{:02}={:>16.6}", x, f64::from_bits(data)),
+                        TraceAccess::ReadF32Reg(_) => format!("f{:02}:{:>12.4}", x, f32::from_bits(data as u32)),
+                        TraceAccess::WriteF32Reg(_) => format!("f{:02}={:>12.4}", x, f32::from_bits(data as u32)),
+                        _ => unreachable!(),
+                    }
+                }
             }
             TraceAccess::Readf8Reg(x) => format!(
                 "f{:02}:[{:>5.3}]",
@@ -1218,26 +1231,36 @@ impl<'a, 'b> Cpu<'a, 'b> {
                     false
                 ) as u32),
             ),
-            TraceAccess::Readf16Reg(x) => format!(
-                "f{:02}=[{:>8.4}]",
-                x,
-                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
-                    (data & 0x0000_0000_0000_ffff) >> 0,
-                    flexfloat::FfOpCvt::Fcvt16f2f,
-                    false,
-                    false
-                ) as u32),
-            ),
-            TraceAccess::Writef16Reg(x) => format!(
-                "f{:02}=[{:>5.3}]",
-                x,
-                f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
-                    (data & 0x0000_0000_0000_00ff) >> 0,
-                    flexfloat::FfOpCvt::Fcvt16f2f,
-                    false,
-                    false
-                ) as u32),
-            ),
+            TraceAccess::Readf16Reg(x) =>
+                if self.engine.config.float_instr.zfinx {
+                    format!("x{}={:08x}", x, data as u32)
+                } else {
+                    format!(
+                        "f{:02}=[{:>8.4}]",
+                        x,
+                        f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                            (data & 0x0000_0000_0000_ffff) >> 0,
+                            flexfloat::FfOpCvt::Fcvt16f2f,
+                            false,
+                            false
+                        ) as u32),
+                    )
+                },
+            TraceAccess::Writef16Reg(x) =>
+            if self.engine.config.float_instr.zfinx {
+                format!(
+                    "f{:02}=[{:>5.3}]",
+                    x,
+                    f32::from_bits(flexfloat::ff_instruction_cvt_to_s(
+                        (data & 0x0000_0000_0000_00ff) >> 0,
+                        flexfloat::FfOpCvt::Fcvt16f2f,
+                        false,
+                        false
+                    ) as u32),
+                )
+            } else {
+                format!("x{}={:08x}", x, data as u32)
+            },
             TraceAccess::Readvf64sReg(x) => format!(
                 "f{:02}:[{:>12.4}, {:>12.4}]",
                 x,
