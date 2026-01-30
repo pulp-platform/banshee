@@ -281,7 +281,6 @@ impl Engine {
 
             LLVMPassManagerBuilderPopulateFunctionPassManager(builder, func_passes);
             LLVMAddAnalysisPasses(tm, module_passes);
-            LLVMPassManagerBuilderPopulateLTOPassManager(builder, module_passes, 0, 1);
             LLVMPassManagerBuilderPopulateModulePassManager(builder, module_passes);
 
             // Create and run the function pass manager.

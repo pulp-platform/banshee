@@ -18,9 +18,10 @@ use std::{
     collections::{BTreeSet, HashMap},
     ffi::CString,
 };
+use libc;
 extern crate flexfloat;
 
-static NONAME: &'static i8 = unsafe { std::mem::transmute("\0".as_ptr()) };
+static NONAME: &'static libc::c_char = unsafe { std::mem::transmute("\0".as_ptr()) };
 
 /// Base address of the stream semantic regsiters
 static SSR_BASE: u64 = 0x204800;
